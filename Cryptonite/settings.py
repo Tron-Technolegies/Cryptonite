@@ -12,8 +12,19 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# newly added
+import environ
+import os
+
+env = environ.Env()
+environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
+# till here
 
 
 # Quick-start development settings - unsuitable for production
@@ -24,6 +35,16 @@ SECRET_KEY = 'django-insecure-$zi0e7s16wdo(8l#ko9dsy6&$m$fcj@)y*9g@__v@qz*7%i&42
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+
+# newly added
+
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
+# STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
+
+# till here
+
+
 
 ALLOWED_HOSTS = []
 

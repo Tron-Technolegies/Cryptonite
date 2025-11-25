@@ -29,7 +29,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 
-from .models import CartItem
+from .models import CartItem, Order, OrderItem
 from AdminApp.models import Product
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -95,3 +95,24 @@ class AdminUserListSerializer(serializers.ModelSerializer):
 
 
 
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ["id", "product", "bundle", "quantity"]
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            "id",
+            "user",
+            "total_amount",
+            "stripe_payment_intent",
+            "status",
+            "created_at",
+            "items"
+        ]

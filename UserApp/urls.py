@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import AddToCartView, BundleOfferDetailView, BundleOfferListView, CartListView, CartTotalView, ForgotPasswordView, GetUserInfoView, LogoutView, ProductDetailView, ProductListView, RegisterView, EmailTokenObtainView, RemoveFromCartView, RentMinerView, ResetPasswordView, UpdateCartView, UserActiveRentalsView, UserPastRentalsView, VerifyEmailView
+from .views import AddToCartView, BundleOfferDetailView, BundleOfferListView, CartListView, CartTotalView, CreatePaymentIntentView, ForgotPasswordView, GetUserInfoView, LogoutView, ProductDetailView, ProductListView, RegisterView, EmailTokenObtainView, RemoveFromCartView, RentMinerView, ResetPasswordView, StripeWebhookView, UpdateCartView, UserActiveRentalsView, UserPastRentalsView, VerifyEmailView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
@@ -35,4 +35,10 @@ urlpatterns = [
     #Bundle offers
     path("bundles/", BundleOfferListView.as_view(), name="bundle-list"),
     path("bundles/<int:id>/", BundleOfferDetailView.as_view(), name="bundle-detail"),
+
+    #Payment
+    path("payments/create-intent/", CreatePaymentIntentView.as_view(), name="create-payment-intent"),
+    path("payments/webhook/", StripeWebhookView.as_view(), name="stripe-webhook"),
+
+
 ]

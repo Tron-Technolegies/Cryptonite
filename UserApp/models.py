@@ -50,3 +50,21 @@ class Rental(models.Model):
 
     def __str__(self):
         return f"{self.user.email} rented {self.product.model_name}"
+
+
+from django.db import models
+from django.conf import settings
+from AdminApp.models import Product, BundleOffer
+
+class Order(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    stripe_payment_intent = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, default="completed")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL)
+    bundle = models.ForeignKey(BundleOffer, null=True, blank=True, on_delete=models.SET_NULL)
+    quantity = models.PositiveIntegerField(default=1)

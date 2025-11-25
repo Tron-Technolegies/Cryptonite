@@ -419,3 +419,113 @@ class BundleOfferDetailView(generics.RetrieveAPIView):
     serializer_class = BundleOfferSerializer
     permission_classes = [AllowAny]
     lookup_field = 'id'
+
+
+
+# ---------------- PAYMENT INTENT CREATION -----------------
+
+import stripe
+from django.conf import settings
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from .utils import calculate_cart_total
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
+
+class CreatePaymentIntentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # 1. Calculate total from utils
+        total_price, cart_items = calculate_cart_total(request.user)
+
+        if not cart_items.exists():
+            return Response({"error": "Cart is empty"}, status=400)
+
+        # 2. Stripe expects amount in cents
+        amount_in_cents = int(total_price * 100)
+
+        # 3. Create PaymentIntent
+        intent = stripe.PaymentIntent.create(
+            amount=amount_in_cents,
+            currency="usd",
+            metadata={"user_id": request.user.id}
+        )
+
+        return Response({
+            "client_secret": intent.client_secret,
+            "amount": total_price,
+            "currency": "usd"
+        })
+
+
+
+
+# ---------------- STRIPE WEBHOOK -----------------
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from .models import Order, OrderItem
+from django.contrib.auth import get_user_model
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class StripeWebhookView(APIView):
+    permission_classes = []  # Stripe doesn’t use JWT
+
+    def post(self, request):
+        payload = request.body
+        sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
+        webhook_secret = settings.STRIPE_WEBHOOK_SECRET
+
+        try:
+            event = stripe.Webhook.construct_event(
+                payload=payload,
+                sig_header=sig_header,
+                secret=webhook_secret
+            )
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
+        if event['type'] == 'payment_intent.succeeded':
+            intent = event['data']['object']
+            user_id = intent['metadata']['user_id']
+
+            # STEP 1: get user
+            user = User.objects.get(id=user_id)
+
+            # STEP 2: get cart items
+            cart_items = CartItem.objects.filter(user=user)
+            total_price = 0
+            
+            # STEP 3: calculate total & create order
+            for item in cart_items:
+                if item.product:
+                    total_price += float(item.product.price) * item.quantity
+                elif item.bundle:
+                    total_price += float(item.bundle.price) * item.quantity
+            
+            order = Order.objects.create(
+                user=user,
+                total_amount=total_price,
+                stripe_payment_intent=intent["id"],
+                status="completed"
+            )
+
+            # STEP 4: create order items
+            for item in cart_items:
+                OrderItem.objects.create(
+                    order=order,
+                    product=item.product,
+                    bundle=item.bundle,
+                    quantity=item.quantity
+                )
+
+            # STEP 5: clear cart
+            cart_items.delete()
+
+        return Response(status=200)
