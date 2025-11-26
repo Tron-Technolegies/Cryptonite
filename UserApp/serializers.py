@@ -41,26 +41,51 @@ class ProductSerializer(serializers.ModelSerializer):
 
 from .models import CartItem
 
-class CartItemSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source='product.model_name', read_only=True)
-    product_price = serializers.DecimalField(source='product.price', max_digits=12, decimal_places=2, read_only=True)
+# class CartItemSerializer(serializers.ModelSerializer):
+#     product_name = serializers.CharField(source='product.model_name', read_only=True)
+#     product_price = serializers.DecimalField(source='product.price', max_digits=12, decimal_places=2, read_only=True)
 
-    bundle_name = serializers.CharField(source='bundle.name', read_only=True)
-    bundle_price = serializers.DecimalField(source='bundle.price', max_digits=12, decimal_places=2, read_only=True)
+#     bundle_name = serializers.CharField(source='bundle.name', read_only=True)
+#     bundle_price = serializers.DecimalField(source='bundle.price', max_digits=12, decimal_places=2, read_only=True)
+
+#     class Meta:
+#         model = CartItem
+#         fields = [
+#             "id",
+#             "product",
+#             "product_name",
+#             "product_price",
+#             "bundle",
+#             "bundle_name",
+#             "bundle_price",
+#             "quantity"
+#         ]
+
+
+class CartItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)  # FULL PRODUCT DETAILS
+
+    bundle = serializers.SerializerMethodField()  # FULL BUNDLE DETAILS
 
     class Meta:
         model = CartItem
         fields = [
             "id",
             "product",
-            "product_name",
-            "product_price",
             "bundle",
-            "bundle_name",
-            "bundle_price",
-            "quantity"
+            "quantity",
         ]
-        
+
+    def get_bundle(self, obj):
+        if obj.bundle:
+            return {
+                "id": obj.bundle.id,
+                "name": obj.bundle.name,
+                "price": obj.bundle.price,
+                "image": obj.bundle.image.url if obj.bundle.image else None
+            }
+        return None
+
 
 from .models import Rental
 

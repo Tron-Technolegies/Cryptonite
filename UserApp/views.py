@@ -465,19 +465,28 @@ class CreatePaymentIntentView(APIView):
 
 
 # ---------------- STRIPE WEBHOOK -----------------
-
-
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .models import Order, OrderItem
-from django.contrib.auth import get_user_model
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.conf import settings
+import stripe
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-@method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(csrf_exempt, name="dispatch")
 class StripeWebhookView(APIView):
-    permission_classes = []  # Stripe doesn’t use JWT
+    """
+    Handles Stripe webhooks.
+    We care mainly about: payment_intent.succeeded
+    """
+
+    permission_classes = []  # Stripe does not send JWT
 
     def post(self, request):
+        print("\n🔔 Webhook received")
+
         payload = request.body
         sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
         webhook_secret = settings.STRIPE_WEBHOOK_SECRET
@@ -486,46 +495,70 @@ class StripeWebhookView(APIView):
             event = stripe.Webhook.construct_event(
                 payload=payload,
                 sig_header=sig_header,
-                secret=webhook_secret
+                secret=webhook_secret,
             )
+            event_type = event["type"]
+            print(f"✅ Event verified: {event_type}")
         except Exception as e:
+            # Signature / payload error
+            print("❌ Verification failed:", e)
             return Response({"error": str(e)}, status=400)
 
-        if event['type'] == 'payment_intent.succeeded':
-            intent = event['data']['object']
-            user_id = intent['metadata']['user_id']
+        # ---- We only care about payment_intent.succeeded ----
+        if event_type == "payment_intent.succeeded":
+            print("🎉 payment_intent.succeeded received")
 
-            # STEP 1: get user
+            intent = event["data"]["object"]
+            metadata = intent.get("metadata", {}) or {}
+            user_id = metadata.get("user_id")
+
+            if not user_id:
+                print("⚠ No user_id in metadata, skipping order creation")
+                return Response(status=200)
+
+            from django.contrib.auth import get_user_model
+            from .models import CartItem, Order, OrderItem
+
+            User = get_user_model()
             user = User.objects.get(id=user_id)
-
-            # STEP 2: get cart items
             cart_items = CartItem.objects.filter(user=user)
+
+            if not cart_items.exists():
+                print("⚠ Cart empty for user, nothing to create")
+                return Response(status=200)
+
+            # ---- Calculate total ----
             total_price = 0
-            
-            # STEP 3: calculate total & create order
             for item in cart_items:
                 if item.product:
                     total_price += float(item.product.price) * item.quantity
                 elif item.bundle:
                     total_price += float(item.bundle.price) * item.quantity
-            
+
+            # ---- Create order ----
             order = Order.objects.create(
                 user=user,
                 total_amount=total_price,
                 stripe_payment_intent=intent["id"],
-                status="completed"
+                status="completed",
             )
+            print("🧾 Order created:", order.id)
 
-            # STEP 4: create order items
+            # ---- Create order items ----
             for item in cart_items:
                 OrderItem.objects.create(
                     order=order,
                     product=item.product,
                     bundle=item.bundle,
-                    quantity=item.quantity
+                    quantity=item.quantity,
                 )
 
-            # STEP 5: clear cart
+            print("📦 Order items saved")
             cart_items.delete()
+            print("🗑 Cart cleared")
+
+        else:
+            # Other events: we don't use them now, but respond 200 so Stripe is happy
+            print(f"ℹ Ignoring unsupported event type: {event_type}")
 
         return Response(status=200)
