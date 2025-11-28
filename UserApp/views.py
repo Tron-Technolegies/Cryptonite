@@ -319,7 +319,7 @@ class CartTotalView(APIView):
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from AdminApp.models import Product
 from .models import Rental
 from .serializers import RentalSerializer
@@ -439,20 +439,71 @@ class CreatePaymentIntentView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        # 1. Calculate total from utils
-        total_price, cart_items = calculate_cart_total(request.user)
+        user = request.user
+        purchase_type = request.data.get("purchase_type")  # "buy" or "rent"
 
+        if purchase_type not in ["buy", "rent"]:
+            return Response({"error": "purchase_type must be 'buy' or 'rent'"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # 1) Calculate total
+        total_price, cart_items = calculate_cart_total(user)
         if not cart_items.exists():
-            return Response({"error": "Cart is empty"}, status=400)
+            return Response({"error": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 2. Stripe expects amount in cents
+        # 2) BUY → address required
+        address = None
+        save_address = False
+
+        if purchase_type == "buy":
+            address = request.data.get("address")
+            save_address = request.data.get("save_address", False)
+
+            if not address:
+                return Response({"error": "Address is required for purchase_type='buy'"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            if save_address:
+                user.shipping_address = address
+                user.save()
+
+        # 3) RENT → duration required
+        duration_days = None
+        if purchase_type == "rent":
+            duration_days = request.data.get("duration_days", 30)
+            try:
+                duration_days = int(duration_days)
+            except ValueError:
+                return Response({"error": "duration_days must be an integer"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+        # 4) Stripe needs amount in cents
         amount_in_cents = int(total_price * 100)
 
-        # 3. Create PaymentIntent
+        # 5) Build metadata for webhook
+        metadata = {
+            "user_id": str(user.id),
+            "purchase_type": purchase_type,
+        }
+
+        if purchase_type == "rent":
+            metadata["duration_days"] = str(duration_days)
+
+        if purchase_type == "buy":
+            metadata.update({
+                "name": address.get("name", ""),
+                "line1": address.get("line1", ""),
+                "city": address.get("city", ""),
+                "state": address.get("state", ""),
+                "postal_code": address.get("postal_code", ""),
+                "country": address.get("country", ""),
+            })
+
+        # 6) Stripe PaymentIntent
         intent = stripe.PaymentIntent.create(
             amount=amount_in_cents,
             currency="usd",
-            metadata={"user_id": request.user.id}
+            metadata=metadata,
         )
 
         return Response({
@@ -460,7 +511,6 @@ class CreatePaymentIntentView(APIView):
             "amount": total_price,
             "currency": "usd"
         })
-
 
 
 
@@ -472,17 +522,14 @@ from rest_framework.response import Response
 from django.conf import settings
 import stripe
 
-stripe.api_key = settings.STRIPE_SECRET_KEY
+from django.contrib.auth import get_user_model
+from .models import CartItem, Order, OrderItem
 
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 @method_decorator(csrf_exempt, name="dispatch")
 class StripeWebhookView(APIView):
-    """
-    Handles Stripe webhooks.
-    We care mainly about: payment_intent.succeeded
-    """
-
-    permission_classes = []  # Stripe does not send JWT
+    permission_classes = []
 
     def post(self, request):
         print("\n🔔 Webhook received")
@@ -500,65 +547,115 @@ class StripeWebhookView(APIView):
             event_type = event["type"]
             print(f"✅ Event verified: {event_type}")
         except Exception as e:
-            # Signature / payload error
             print("❌ Verification failed:", e)
             return Response({"error": str(e)}, status=400)
 
-        # ---- We only care about payment_intent.succeeded ----
         if event_type == "payment_intent.succeeded":
             print("🎉 payment_intent.succeeded received")
 
             intent = event["data"]["object"]
             metadata = intent.get("metadata", {}) or {}
+
             user_id = metadata.get("user_id")
+            purchase_type = metadata.get("purchase_type")
 
-            if not user_id:
-                print("⚠ No user_id in metadata, skipping order creation")
+            if not user_id or not purchase_type:
+                print("⚠ Missing metadata")
                 return Response(status=200)
-
-            from django.contrib.auth import get_user_model
-            from .models import CartItem, Order, OrderItem
 
             User = get_user_model()
             user = User.objects.get(id=user_id)
-            cart_items = CartItem.objects.filter(user=user)
 
+            cart_items = CartItem.objects.filter(user=user)
             if not cart_items.exists():
-                print("⚠ Cart empty for user, nothing to create")
+                print("⚠ Cart empty")
                 return Response(status=200)
 
-            # ---- Calculate total ----
-            total_price = 0
-            for item in cart_items:
-                if item.product:
-                    total_price += float(item.product.price) * item.quantity
-                elif item.bundle:
-                    total_price += float(item.bundle.price) * item.quantity
-
-            # ---- Create order ----
-            order = Order.objects.create(
-                user=user,
-                total_amount=total_price,
-                stripe_payment_intent=intent["id"],
-                status="completed",
+            total_price = sum(
+                (float(ci.product.price) if ci.product else float(ci.bundle.combo_price)) * ci.quantity
+                for ci in cart_items
             )
-            print("🧾 Order created:", order.id)
 
-            # ---- Create order items ----
-            for item in cart_items:
-                OrderItem.objects.create(
-                    order=order,
-                    product=item.product,
-                    bundle=item.bundle,
-                    quantity=item.quantity,
+            if purchase_type == "buy":
+                delivery_address = {
+                    "name": metadata.get("name"),
+                    "line1": metadata.get("line1"),
+                    "city": metadata.get("city"),
+                    "state": metadata.get("state"),
+                    "postal_code": metadata.get("postal_code"),
+                    "country": metadata.get("country"),
+                }
+
+                order = Order.objects.create(
+                    user=user,
+                    total_amount=total_price,
+                    stripe_payment_intent=intent["id"],
+                    status="completed",
+                    delivery_address=delivery_address,
                 )
 
-            print("📦 Order items saved")
+                for item in cart_items:
+                    OrderItem.objects.create(
+                        order=order,
+                        product=item.product,
+                        bundle=item.bundle,
+                        quantity=item.quantity,
+                    )
+
+                print("🧾 Order created:", order.id)
+
+            elif purchase_type == "rent":
+                duration_days = int(metadata.get("duration_days", 30))
+
+                for item in cart_items:
+                    if item.product:  
+                        amount = float(item.product.price) * item.quantity
+                        end_date = timezone.now() + timezone.timedelta(days=duration_days)
+
+                        rental = Rental.objects.create(
+                            user=user,
+                            product=item.product,
+                            duration_days=duration_days,
+                            amount_paid=amount,
+                            end_date=end_date,
+                        )
+
+                        print("🛠 Rental created:", rental.id)
+
             cart_items.delete()
             print("🗑 Cart cleared")
 
-        else:
-            # Other events: we don't use them now, but respond 200 so Stripe is happy
-            print(f"ℹ Ignoring unsupported event type: {event_type}")
-
         return Response(status=200)
+
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .models import CartItem
+from .serializers import CartItemSerializer
+from .utils import calculate_cart_total
+
+class CheckoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Returns checkout summary for frontend
+        """
+        total_price, cart_items = calculate_cart_total(request.user)
+        serialized_items = CartItemSerializer(cart_items, many=True).data
+
+        response = {
+            "cart_items": serialized_items,
+            "total_price": total_price,
+            "price_breakup": {
+                "subtotal": total_price,
+                "tax": round(total_price * 0.05, 2),      # example 5%
+                "final_total": round(total_price * 1.05, 2)
+            },
+            "can_buy": True,
+            "can_rent": True,
+            "user_default_address": None,  # add later when you store addresses
+        }
+
+        return Response(response)

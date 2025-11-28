@@ -11,3 +11,4 @@ def calculate_cart_total(user):
             total_price += float(item.bundle.price) * item.quantity
 
     return total_price, cart_items
+

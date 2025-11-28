@@ -4,8 +4,11 @@ from django.db import models
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
-    is_active = models.BooleanField(default=False)  # 👈 important for email verification
+    is_active = models.BooleanField(default=False)  # 👈 important for email 
 
+    # NEW → Save default shipping address if user chooses
+    shipping_address = models.JSONField(null=True, blank=True)
+    
     def __str__(self):
         return self.email or self.username
 
@@ -62,6 +65,8 @@ class Order(models.Model):
     stripe_payment_intent = models.CharField(max_length=255)
     status = models.CharField(max_length=20, default="completed")
     created_at = models.DateTimeField(auto_now_add=True)
+    delivery_address = models.JSONField(null=True, blank=True)   #new line
+
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)
