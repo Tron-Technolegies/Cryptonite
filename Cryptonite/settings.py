@@ -194,30 +194,3 @@ DEFAULT_FROM_EMAIL = 'noreply@cryptonite.com'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-
-# ----------------------------------------------------------
-# AUTO-CREATE SUPERUSER IN PRODUCTION (ONE TIME)
-# ----------------------------------------------------------
-if os.environ.get("CREATE_SUPERUSER") == "True":
-    from django.contrib.auth import get_user_model
-    User = get_user_model()
-
-    username = os.environ.get("DJANGO_SUPERUSER_USERNAME")
-    email = os.environ.get("DJANGO_SUPERUSER_EMAIL")
-    password = os.environ.get("DJANGO_SUPERUSER_PASSWORD")
-
-    if username and password:
-        if not User.objects.filter(email=email).exists():
-            user = User.objects.create_superuser(
-                email=email,
-                username=username,
-                password=password
-            )
-            # ADD YOUR CUSTOM FIELDS HERE:
-           
-            user.is_active = True
-            user.save()
-
-            print("✔ Superuser created with email_verified=True")
-        else:
-            print("✔ Superuser already exists.")
