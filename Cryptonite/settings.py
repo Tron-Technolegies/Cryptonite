@@ -64,7 +64,8 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',"rest_framework",
+    'django.contrib.staticfiles',
+    "rest_framework",
     "rest_framework.authtoken",
     "UserApp",
     "AdminApp",
@@ -83,6 +84,7 @@ REST_FRAMEWORK = {
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",  #newly added right before deployment
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -114,15 +116,21 @@ WSGI_APPLICATION = 'Cryptonite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'postgres',
+#         'USER': 'postgres',
+#         'PASSWORD': 'admin',
+#         'PORT': 5432,
+#         'HOST':'localhost'
+#     }
+# }
+
+import dj_database_url
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': 'admin',
-        'PORT': 5432,
-        'HOST':'localhost'
-    }
+    "default": dj_database_url.config(conn_max_age=600, ssl_require=True)
 }
 
 
@@ -163,6 +171,17 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+#newly added right before deployment
+
+STATIC_ROOT = BASE_DIR / "staticfiles"   # collectstatic will put files here
+STATICFILES_DIRS = [BASE_DIR / "static"]  # if you keep a "static/" folder for dev
+
+# Use compressed manifest storage for caching and integrity
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+#till here....
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
