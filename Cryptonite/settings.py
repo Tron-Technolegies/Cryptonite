@@ -49,7 +49,8 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 ALLOWED_HOSTS = ["*"]
 CORS_ALLOWED_ORIGINS =[
     "http://localhost:5173",
-    "http://localhost:5175"
+    "http://localhost:5175",
+    "https://cryptonitemining.netlify.app"
 ]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -82,9 +83,9 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticatedOrReadOnly",),
 }
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    "whitenoise.middleware.WhiteNoiseMiddleware",  #newly added right before deployment
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
