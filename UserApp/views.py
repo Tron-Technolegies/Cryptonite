@@ -217,7 +217,7 @@ class ProductDetailView(generics.RetrieveAPIView):
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .models import CartItem
+from .models import CartItem, HostingRequest
 from AdminApp.models import BundleOffer
 
 class AddToCartView(generics.CreateAPIView):
@@ -627,7 +627,7 @@ class StripeWebhookView(APIView):
 
         return Response(status=200)
 
-
+# ---------------- CHECKOUT -----------------
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -659,3 +659,69 @@ class CheckoutView(APIView):
         }
 
         return Response(response)
+
+
+
+
+
+
+#10/12/2025
+
+# ---------------- HOSTING REQUEST -----------------
+# UserApp/views.py
+
+class CreateHostingRequestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        phone = request.data.get("phone")
+        message = request.data.get("message", "")
+
+        if not phone:
+            return Response({"error": "phone is required"}, status=400)
+
+        # Get user cart
+        cart_items = CartItem.objects.filter(user=user)
+
+        if not cart_items.exists():
+            return Response({"error": "Cart is empty"}, status=400)
+
+        # Create snapshot of items
+        snapshot = []
+
+        for cart_item in cart_items:
+            if cart_item.product:
+                snapshot.append({
+                    "type": "product",
+                    "id": cart_item.product.id,
+                    "title": cart_item.product.model_name,
+                    "quantity": cart_item.quantity,
+                    "price": str(cart_item.product.price)
+                })
+
+            elif cart_item.bundle:
+                snapshot.append({
+                    "type": "bundle",
+                    "id": cart_item.bundle.id,
+                    "title": cart_item.bundle.title,
+                    "quantity": cart_item.quantity,
+                    "price": str(cart_item.bundle.price)
+                })
+
+        # Save hosting request
+        hosting_request = HostingRequest.objects.create(
+            user=user,
+            phone=phone,
+            message=message,
+            items=snapshot
+        )
+
+        # Clear cart (optional)
+        cart_items.delete()
+
+        return Response({
+            "message": "Hosting request submitted. We will contact you shortly.",
+            "hosting_request_id": hosting_request.id
+        }, status=201)
+

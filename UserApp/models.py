@@ -73,3 +73,37 @@ class OrderItem(models.Model):
     product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL)
     bundle = models.ForeignKey(BundleOffer, null=True, blank=True, on_delete=models.SET_NULL)
     quantity = models.PositiveIntegerField(default=1)
+
+
+
+#10/12/2025
+# UserApp/models.py
+
+from django.db import models
+from django.conf import settings
+
+class HostingRequest(models.Model):
+    STATUS_CHOICES = [
+        ("PENDING_CONTACT", "Pending Contact"),
+        ("CONTACTED", "Contacted"),
+        ("CANCELLED", "Cancelled"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="hosting_requests"
+    )
+    phone = models.CharField(max_length=20)
+    message = models.TextField(blank=True)
+    items = models.JSONField()  # snapshot of cart items at request time
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="PENDING_CONTACT"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"HostingRequest #{self.id} by {self.user.email}"

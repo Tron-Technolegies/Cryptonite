@@ -142,3 +142,15 @@ class OrderSerializer(serializers.ModelSerializer):
             "created_at",
             "items"
         ]
+
+
+
+#10/12/2025
+
+from rest_framework import serializers
+from .models import HostingRequest
+
+class HostingRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostingRequest
+        fields = "__all__"

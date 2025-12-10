@@ -20,7 +20,14 @@ urlpatterns = [
 
     path("rentals/", views.get_all_rent_orders, name="admin-rentals"),
 
-    path("users/", views.get_all_users, name="admin-users")
+    path("users/", views.get_all_users, name="admin-users"),
+
+
+
+    path('hosting/requests/', views.admin_get_all_hosting_requests, name='admin_get_all_hosting_requests'),
+    path('hosting/requests/<int:id>/', views.admin_get_hosting_request, name='admin_get_hosting_request'),
+    path('hosting/requests/<int:id>/update/', views.admin_update_hosting_request, name='admin_update_hosting_request'),
+    path('hosting/requests/<int:id>/delete/', views.admin_delete_hosting_request, name='admin_delete_hosting_request')
     
 
 ]

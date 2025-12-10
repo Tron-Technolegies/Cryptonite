@@ -20,3 +20,16 @@ class BundleOfferSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+# 10/12/25
+from rest_framework import serializers
+from UserApp.models import HostingRequest
+
+class AdminHostingRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostingRequest
+        # allow admin to edit certain fields
+        fields = [
+            "id", "request_id", "user", "whatsapp_number", "message", "items",
+            "status", "admin_notes", "monthly_fee", "contacted_at", "activated_at", "created_at"
+        ]
+        read_only_fields = ["id", "request_id", "user", "items", "created_at"]

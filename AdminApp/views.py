@@ -162,3 +162,81 @@ def get_all_users(request):
     users = User.objects.all().order_by("-date_joined")
     serializer = AdminUserListSerializer(users, many=True)
     return Response(serializer.data)
+
+
+#10/12/2025
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+
+from UserApp.models import HostingRequest  # HostingRequest lives in UserApp
+from UserApp.serializers import HostingRequestSerializer  # Serializer also in UserApp
+
+# ---------- List All Hosting Requests ----------
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def admin_get_all_hosting_requests(request):
+    hosting_requests = HostingRequest.objects.all().order_by('-created_at')
+    serializer = HostingRequestSerializer(hosting_requests, many=True)
+    return Response(serializer.data)
+
+
+# ---------- Get Single Hosting Request ----------
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def admin_get_hosting_request(request, id):
+    hosting = get_object_or_404(HostingRequest, id=id)
+    serializer = HostingRequestSerializer(hosting)
+    return Response(serializer.data)
+
+
+
+# ---------- Update Hosting Request ----------
+
+@api_view(['PATCH'])
+@permission_classes([permissions.IsAdminUser])
+def admin_update_hosting_request(request, id):
+    hosting = get_object_or_404(HostingRequest, id=id)
+
+    status_value = request.data.get("status")
+    admin_notes = request.data.get("admin_notes")
+    monthly_fee = request.data.get("monthly_fee")
+    contacted_at = request.data.get("contacted_at")
+    activated_at = request.data.get("activated_at")
+
+    if status_value:
+        hosting.status = status_value
+
+    if admin_notes is not None:
+        hosting.admin_notes = admin_notes
+
+    if monthly_fee is not None:
+        hosting.monthly_fee = monthly_fee
+
+    if contacted_at:
+        hosting.contacted_at = contacted_at
+
+    if activated_at:
+        hosting.activated_at = activated_at
+
+    hosting.save()
+
+    return Response({
+        "message": "Hosting request updated successfully",
+        "data": HostingRequestSerializer(hosting).data
+    })
+
+
+# ---------- Update Hosting Request ----------
+
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAdminUser])
+def admin_delete_hosting_request(request, id):
+    hosting = get_object_or_404(HostingRequest, id=id)
+    hosting.delete()
+
+    return Response({"message": "Hosting request deleted successfully"})
