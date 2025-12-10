@@ -175,11 +175,11 @@ STATIC_URL = 'static/'
 
 #newly added right before deployment
 
-STATIC_ROOT = BASE_DIR / "staticfiles"   # collectstatic will put files here
-STATICFILES_DIRS = [BASE_DIR / "static"]  # if you keep a "static/" folder for dev
+# STATIC_ROOT = BASE_DIR / "staticfiles"   # collectstatic will put files here
+# STATICFILES_DIRS = [BASE_DIR / "static"]  # if you keep a "static/" folder for dev
 
-# Use compressed manifest storage for caching and integrity
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# # Use compressed manifest storage for caching and integrity
+# STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 #till here....
 
@@ -189,8 +189,8 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-# DEFAULT_FROM_EMAIL = 'noreply@cryptonite.com'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@cryptonite.com'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
