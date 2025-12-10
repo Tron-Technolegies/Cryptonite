@@ -117,22 +117,22 @@ WSGI_APPLICATION = 'Cryptonite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'postgres',
-#         'USER': 'postgres',
-#         'PASSWORD': 'admin',
-#         'PORT': 5432,
-#         'HOST':'localhost'
-#     }
-# }
-
-import dj_database_url
-
 DATABASES = {
-    "default": dj_database_url.config(conn_max_age=600, ssl_require=True)
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres',
+        'PASSWORD': 'admin',
+        'PORT': 5432,
+        'HOST':'localhost'
+    }
 }
+
+# import dj_database_url
+
+# DATABASES = {
+#     "default": dj_database_url.config(conn_max_age=600, ssl_require=True)
+# }
 
 
 
@@ -195,11 +195,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 
-EMAIL_HOST = env("EMAIL_HOST")
-EMAIL_HOST_USER = env("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
-EMAIL_PORT = env.int("EMAIL_PORT")
-EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS")
+# EMAIL_HOST = env("EMAIL_HOST")
+# EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+# EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+# EMAIL_PORT = env.int("EMAIL_PORT")
+# EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS")

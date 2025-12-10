@@ -23,7 +23,7 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save(is_active=False)
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
-        verification_link = f"https://cryptonitemining.netlify.app/verify-email/{uid}/{token}"
+        verification_link = f"http://localhost:5175/verify-email/{uid}/{token}"
 
         send_mail(
             subject="Verify your Cryptonite account",
