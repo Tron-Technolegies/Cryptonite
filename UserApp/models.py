@@ -39,6 +39,22 @@ class CartItem(models.Model):
     
 
 
+# class Rental(models.Model):
+#     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+
+#     start_date = models.DateTimeField(auto_now_add=True)
+#     end_date = models.DateTimeField()
+    
+#     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
+#     duration_days = models.PositiveIntegerField()  # ex: 30, 60, 90
+
+#     is_active = models.BooleanField(default=True)
+
+#     def __str__(self):
+#         return f"{self.user.email} rented {self.product.model_name}"
+
+
 class Rental(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -47,13 +63,48 @@ class Rental(models.Model):
     end_date = models.DateTimeField()
     
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
-    duration_days = models.PositiveIntegerField()  # ex: 30, 60, 90
+    duration_days = models.PositiveIntegerField()
 
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.user.email} rented {self.product.model_name}"
 
+   
+    def calculate_rental_fee(self):
+        """
+        Calculates total rental fee based on:
+        - Machine power consumption (e.g., "3250W" → 3.25 kW)
+        - hosting_fee_per_kw (monthly rate per kW)
+        - duration_days
+        """
+        import re
+        from decimal import Decimal
+
+        power_str = self.product.power.strip()
+        match = re.search(r'(\d+(?:\.\d+)?)\s*(kw|w)', power_str, re.IGNORECASE)
+        if not match:
+            raise ValueError(f"Cannot parse power value: '{power_str}'. Use format like '3250W' or '3.25 kW'")
+
+        value = Decimal(match.group(1))
+        unit = match.group(2).upper()
+
+        # Convert to kW
+        power_kw = value if unit == 'KW' else value / Decimal('1000')
+
+        if not self.product.hosting_fee_per_kw:
+            raise ValueError("hosting_fee_per_kw is not set for this product")
+
+        # Monthly hosting cost for this machine
+        monthly_cost = power_kw * self.product.hosting_fee_per_kw
+
+        # Convert to daily (30-day month is standard in mining hosting)
+        daily_cost = monthly_cost / Decimal('30')
+
+        # Total for the rental period
+        total = daily_cost * Decimal(self.duration_days)
+
+        return total.quantize(Decimal('0.01'))  # Round to 2 decimal places
 
 from django.db import models
 from django.conf import settings

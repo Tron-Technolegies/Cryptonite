@@ -29,10 +29,15 @@ environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-$zi0e7s16wdo(8l#ko9dsy6&$m$fcj@)y*9g@__v@qz*7%i&42'
+SECRET_KEY = env("SECRET_KEY")
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG = True
+
+
+# FOR DEPLOYMENT
+DEBUG = env.bool("DEBUG", default=False)
 
 
 # newly added
@@ -44,7 +49,12 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 
 
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    ".onrender.com",
+]
+
 CORS_ALLOWED_ORIGINS =[
     "http://localhost:5173",
     "http://localhost:5175",
@@ -115,22 +125,22 @@ WSGI_APPLICATION = 'Cryptonite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': 'admin',
-        'PORT': 5432,
-        'HOST':'localhost'
-    }
-}
-
-# import dj_database_url
-
 # DATABASES = {
-#     "default": dj_database_url.config(conn_max_age=600, ssl_require=True)
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'postgres',
+#         'USER': 'postgres',
+#         'PASSWORD': 'admin',
+#         'PORT': 5432,
+#         'HOST':'localhost'
+#     }
 # }
+
+import dj_database_url
+
+DATABASES = {
+    "default": dj_database_url.config(conn_max_age=600, ssl_require=True)
+}
 
 
 
@@ -173,11 +183,11 @@ STATIC_URL = 'static/'
 
 #newly added right before deployment
 
-# STATIC_ROOT = BASE_DIR / "staticfiles"   # collectstatic will put files here
+STATIC_ROOT = BASE_DIR / "staticfiles"   # collectstatic will put files here
 # STATICFILES_DIRS = [BASE_DIR / "static"]  # if you keep a "static/" folder for dev
 
-# # Use compressed manifest storage for caching and integrity
-# STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# Use compressed manifest storage for caching and integrity
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 #till here....
 
@@ -187,17 +197,15 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'noreply@cryptonite.com'
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-# DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env.int("EMAIL_PORT")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS")
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+FRONTEND_URL = env("FRONTEND_URL")
 
-# EMAIL_HOST = env("EMAIL_HOST")
-# EMAIL_HOST_USER = env("EMAIL_HOST_USER")
-# EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
-# EMAIL_PORT = env.int("EMAIL_PORT")
-# EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS")

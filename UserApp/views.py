@@ -23,7 +23,9 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save(is_active=False)
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
-        verification_link = f"http://localhost:5175/verify-email/{uid}/{token}"
+        # verification_link = f"http://localhost:5175/verify-email/{uid}/{token}"
+        verification_link = f"{settings.FRONTEND_URL}/verify-email/{uid}/{token}"
+
 
         send_mail(
             subject="Verify your Cryptonite account",
@@ -316,13 +318,59 @@ class CartTotalView(APIView):
 
 # ---------------- RENT MINER -----------------
 
+# from rest_framework import generics, status
+# from rest_framework.permissions import IsAuthenticated
+# from rest_framework.response import Response
+# from datetime import datetime, timedelta, timezone
+# from AdminApp.models import Product
+# from .models import Rental
+# from .serializers import RentalSerializer
+
+# class RentMinerView(generics.CreateAPIView):
+#     serializer_class = RentalSerializer
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request, *args, **kwargs):
+#         product_id = request.data.get("product_id")
+#         duration = int(request.data.get("duration_days", 30))
+#         amount = request.data.get("amount_paid")
+
+#         try:
+#             product = Product.objects.get(id=product_id)
+#         except Product.DoesNotExist:
+#             return Response({"error": "Product not found"}, status=404)
+
+#         end_date = datetime.now() + timedelta(days=duration)
+
+#         rental = Rental.objects.create(
+#             user=request.user,
+#             product=product,
+#             duration_days=duration,
+#             amount_paid=amount,
+#             end_date=end_date
+#         )
+
+#         return Response({
+#             "message": "Miner rented successfully",
+#             "rental_id": rental.id,
+#             "end_date": rental.end_date
+#         }, status=201)
+
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from datetime import datetime, timedelta, timezone
+from django.utils import timezone
+from datetime import datetime, timedelta
 from AdminApp.models import Product
 from .models import Rental
 from .serializers import RentalSerializer
+
+from decimal import Decimal
+from django.utils import timezone
+from datetime import timedelta
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 class RentMinerView(generics.CreateAPIView):
     serializer_class = RentalSerializer
@@ -330,31 +378,69 @@ class RentMinerView(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         product_id = request.data.get("product_id")
-        duration = int(request.data.get("duration_days", 30))
-        amount = request.data.get("amount_paid")
+        duration_days = request.data.get("duration_days", 30)
+        amount_paid = request.data.get("amount_paid")  # Now optional
 
+        # 1. Get product
         try:
             product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
             return Response({"error": "Product not found"}, status=404)
 
-        end_date = datetime.now() + timedelta(days=duration)
+        # 2. Validate duration
+        try:
+            duration_days = int(duration_days)
+            if duration_days not in [30, 60, 90, 180, 365]:  # Optional: restrict allowed durations
+                return Response({"error": "Allowed durations: 30, 60, 90, 180, or 365 days"}, status=400)
+        except ValueError:
+            return Response({"error": "Invalid duration_days"}, status=400)
 
+        # 3. Calculate end date
+        end_date = timezone.now() + timedelta(days=duration_days)
+
+        # 4. Calculate correct rental fee
+        temp_rental = Rental(product=product, duration_days=duration_days)
+        try:
+            required_amount = temp_rental.calculate_rental_fee()
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
+
+        # 5. Validate payment (if user sent amount_paid)
+        if amount_paid is not None:
+            try:
+                amount_paid = Decimal(str(amount_paid))  # str() fixes float issues
+                if amount_paid < required_amount:
+                    return Response({
+                        "error": "Insufficient payment",
+                        "required": float(required_amount),
+                        "received": float(amount_paid)
+                    }, status=400)
+            except:
+                return Response({"error": "Invalid amount_paid format"}, status=400)
+        else:
+            amount_paid = required_amount  # Auto-fill correct amount
+
+        # 6. Create rental
         rental = Rental.objects.create(
             user=request.user,
             product=product,
-            duration_days=duration,
-            amount_paid=amount,
-            end_date=end_date
+            duration_days=duration_days,
+            amount_paid=amount_paid,
+            end_date=end_date,
+            is_active=True
         )
 
         return Response({
-            "message": "Miner rented successfully",
+            "message": "Miner rented successfully!",
             "rental_id": rental.id,
-            "end_date": rental.end_date
+            "required_amount": float(required_amount),
+            "amount_paid": float(amount_paid),
+            "duration_days": duration_days,
+            "end_date": end_date.isoformat(),
+            "daily_cost": float(required_amount / duration_days)
         }, status=201)
-
-
+    
+    
 # ---------------- LIST OF ACTIVE RENTALS -----------------
 
 class UserActiveRentalsView(generics.ListAPIView):
@@ -668,7 +754,7 @@ class CheckoutView(APIView):
 #10/12/2025
 
 # ---------------- HOSTING REQUEST -----------------
-# UserApp/views.py
+
 
 class CreateHostingRequestView(APIView):
     permission_classes = [IsAuthenticated]
