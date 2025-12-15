@@ -126,35 +126,42 @@ class OrderItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
 
 
-
-#10/12/2025
-# UserApp/models.py
-
-from django.db import models
-from django.conf import settings
-
 class HostingRequest(models.Model):
-    STATUS_CHOICES = [
-        ("PENDING_CONTACT", "Pending Contact"),
-        ("CONTACTED", "Contacted"),
-        ("CANCELLED", "Cancelled"),
-    ]
-
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="hosting_requests"
+    HOSTING_LOCATIONS = (
+        ("US", "United States"),
+        ("ET", "Ethiopia"),
+        ("UAE", "UAE"),
     )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     phone = models.CharField(max_length=20)
     message = models.TextField(blank=True)
-    items = models.JSONField()  # snapshot of cart items at request time
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default="PENDING_CONTACT"
+    hosting_location = models.CharField(max_length=10, choices=HOSTING_LOCATIONS)
+
+    items = models.JSONField()
+
+    # ⬇️ allow NULL, but NO default
+    setup_fee = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    total_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    is_paid = models.BooleanField(default=False)
+
+    stripe_payment_intent = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"HostingRequest #{self.id} by {self.user.email}"

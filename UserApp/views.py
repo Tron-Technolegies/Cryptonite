@@ -520,62 +520,84 @@ from .utils import calculate_cart_total
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
+import stripe
+from decimal import Decimal
+from django.conf import settings
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
+from .utils import calculate_cart_total
+from .models import HostingRequest
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
 
 class CreatePaymentIntentView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         user = request.user
-        purchase_type = request.data.get("purchase_type")  # "buy" or "rent"
+        purchase_type = request.data.get("purchase_type")  # buy / rent / hosting
 
-        if purchase_type not in ["buy", "rent"]:
-            return Response({"error": "purchase_type must be 'buy' or 'rent'"},
-                            status=status.HTTP_400_BAD_REQUEST)
+        if purchase_type not in ["buy", "rent", "hosting"]:
+            return Response(
+                {"error": "purchase_type must be 'buy', 'rent', or 'hosting'"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # 1) Calculate total
-        total_price, cart_items = calculate_cart_total(user)
-        if not cart_items.exists():
-            return Response({"error": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
+        # -------------------------------
+        # BUY / RENT
+        # -------------------------------
+        if purchase_type in ["buy", "rent"]:
+            total_price, cart_items = calculate_cart_total(user)
 
-        # 2) BUY → address required
-        address = None
-        save_address = False
+            if not cart_items.exists():
+                return Response({"error": "Cart is empty"}, status=400)
+
+        # -------------------------------
+        # HOSTING
+        # -------------------------------
+        if purchase_type == "hosting":
+            hosting_request_id = request.data.get("hosting_request_id")
+
+            if not hosting_request_id:
+                return Response(
+                    {"error": "hosting_request_id is required for hosting"},
+                    status=400
+                )
+
+            hosting_request = HostingRequest.objects.get(
+                id=hosting_request_id,
+                user=user,
+                is_paid=False
+            )
+
+            total_price = hosting_request.total_amount
+
+        # -------------------------------
+        # BUY → address required
+        # -------------------------------
+        metadata = {
+            "user_id": str(user.id),
+            "purchase_type": purchase_type,
+        }
 
         if purchase_type == "buy":
             address = request.data.get("address")
             save_address = request.data.get("save_address", False)
 
             if not address:
-                return Response({"error": "Address is required for purchase_type='buy'"},
-                                status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "Address is required for purchase_type='buy'"},
+                    status=400
+                )
 
             if save_address:
                 user.shipping_address = address
                 user.save()
 
-        # 3) RENT → duration required
-        duration_days = None
-        if purchase_type == "rent":
-            duration_days = request.data.get("duration_days", 30)
-            try:
-                duration_days = int(duration_days)
-            except ValueError:
-                return Response({"error": "duration_days must be an integer"},
-                                status=status.HTTP_400_BAD_REQUEST)
-
-        # 4) Stripe needs amount in cents
-        amount_in_cents = int(total_price * 100)
-
-        # 5) Build metadata for webhook
-        metadata = {
-            "user_id": str(user.id),
-            "purchase_type": purchase_type,
-        }
-
-        if purchase_type == "rent":
-            metadata["duration_days"] = str(duration_days)
-
-        if purchase_type == "buy":
             metadata.update({
                 "name": address.get("name", ""),
                 "line1": address.get("line1", ""),
@@ -585,7 +607,28 @@ class CreatePaymentIntentView(APIView):
                 "country": address.get("country", ""),
             })
 
-        # 6) Stripe PaymentIntent
+        # -------------------------------
+        # RENT → duration required
+        # -------------------------------
+        if purchase_type == "rent":
+            duration_days = int(request.data.get("duration_days", 30))
+            metadata["duration_days"] = str(duration_days)
+
+        # -------------------------------
+        # HOSTING metadata
+        # -------------------------------
+        if purchase_type == "hosting":
+            metadata.update({
+                "hosting_request_id": str(hosting_request.id),
+                "hosting_location": hosting_request.hosting_location,
+                "setup_fee": str(hosting_request.setup_fee),
+            })
+
+        # -------------------------------
+        # Stripe PaymentIntent
+        # -------------------------------
+        amount_in_cents = int(Decimal(total_price) * 100)
+
         intent = stripe.PaymentIntent.create(
             amount=amount_in_cents,
             currency="usd",
@@ -597,6 +640,84 @@ class CreatePaymentIntentView(APIView):
             "amount": total_price,
             "currency": "usd"
         })
+
+
+# class CreatePaymentIntentView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request):
+#         user = request.user
+#         purchase_type = request.data.get("purchase_type")  # "buy" or "rent"
+
+#         if purchase_type not in ["buy", "rent"]:
+#             return Response({"error": "purchase_type must be 'buy' or 'rent'"},
+#                             status=status.HTTP_400_BAD_REQUEST)
+
+#         # 1) Calculate total
+#         total_price, cart_items = calculate_cart_total(user)
+#         if not cart_items.exists():
+#             return Response({"error": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         # 2) BUY → address required
+#         address = None
+#         save_address = False
+
+#         if purchase_type == "buy":
+#             address = request.data.get("address")
+#             save_address = request.data.get("save_address", False)
+
+#             if not address:
+#                 return Response({"error": "Address is required for purchase_type='buy'"},
+#                                 status=status.HTTP_400_BAD_REQUEST)
+
+#             if save_address:
+#                 user.shipping_address = address
+#                 user.save()
+
+#         # 3) RENT → duration required
+#         duration_days = None
+#         if purchase_type == "rent":
+#             duration_days = request.data.get("duration_days", 30)
+#             try:
+#                 duration_days = int(duration_days)
+#             except ValueError:
+#                 return Response({"error": "duration_days must be an integer"},
+#                                 status=status.HTTP_400_BAD_REQUEST)
+
+#         # 4) Stripe needs amount in cents
+#         amount_in_cents = int(total_price * 100)
+
+#         # 5) Build metadata for webhook
+#         metadata = {
+#             "user_id": str(user.id),
+#             "purchase_type": purchase_type,
+#         }
+
+#         if purchase_type == "rent":
+#             metadata["duration_days"] = str(duration_days)
+
+#         if purchase_type == "buy":
+#             metadata.update({
+#                 "name": address.get("name", ""),
+#                 "line1": address.get("line1", ""),
+#                 "city": address.get("city", ""),
+#                 "state": address.get("state", ""),
+#                 "postal_code": address.get("postal_code", ""),
+#                 "country": address.get("country", ""),
+#             })
+
+#         # 6) Stripe PaymentIntent
+#         intent = stripe.PaymentIntent.create(
+#             amount=amount_in_cents,
+#             currency="usd",
+#             metadata=metadata,
+#         )
+
+#         return Response({
+#             "client_secret": intent.client_secret,
+#             "amount": total_price,
+#             "currency": "usd"
+#         })
 
 
 
@@ -612,106 +733,231 @@ from django.contrib.auth import get_user_model
 from .models import CartItem, Order, OrderItem
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
+import stripe
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+
+from .models import CartItem, Order, OrderItem, Rental, HostingRequest
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
 
 @method_decorator(csrf_exempt, name="dispatch")
 class StripeWebhookView(APIView):
     permission_classes = []
 
     def post(self, request):
-        print("\n🔔 Webhook received")
-
         payload = request.body
         sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
-        webhook_secret = settings.STRIPE_WEBHOOK_SECRET
 
         try:
             event = stripe.Webhook.construct_event(
-                payload=payload,
-                sig_header=sig_header,
-                secret=webhook_secret,
+                payload,
+                sig_header,
+                settings.STRIPE_WEBHOOK_SECRET
             )
-            event_type = event["type"]
-            print(f"✅ Event verified: {event_type}")
         except Exception as e:
-            print("❌ Verification failed:", e)
             return Response({"error": str(e)}, status=400)
 
-        if event_type == "payment_intent.succeeded":
-            print("🎉 payment_intent.succeeded received")
+        if event["type"] != "payment_intent.succeeded":
+            return Response(status=200)
 
-            intent = event["data"]["object"]
-            metadata = intent.get("metadata", {}) or {}
+        intent = event["data"]["object"]
+        metadata = intent.get("metadata", {})
 
-            user_id = metadata.get("user_id")
-            purchase_type = metadata.get("purchase_type")
+        user_id = metadata.get("user_id")
+        purchase_type = metadata.get("purchase_type")
 
-            if not user_id or not purchase_type:
-                print("⚠ Missing metadata")
-                return Response(status=200)
+        if not user_id or not purchase_type:
+            return Response(status=200)
 
-            User = get_user_model()
-            user = User.objects.get(id=user_id)
+        User = get_user_model()
+        user = User.objects.get(id=user_id)
 
+        # --------------------------------
+        # BUY
+        # --------------------------------
+        if purchase_type == "buy":
             cart_items = CartItem.objects.filter(user=user)
             if not cart_items.exists():
-                print("⚠ Cart empty")
                 return Response(status=200)
 
             total_price = sum(
-                (float(ci.product.price) if ci.product else float(ci.bundle.combo_price)) * ci.quantity
+                (ci.product.price if ci.product else ci.bundle.price) * ci.quantity
                 for ci in cart_items
             )
 
-            if purchase_type == "buy":
-                delivery_address = {
+            order = Order.objects.create(
+                user=user,
+                total_amount=total_price,
+                stripe_payment_intent=intent["id"],
+                status="completed",
+                delivery_address={
                     "name": metadata.get("name"),
                     "line1": metadata.get("line1"),
                     "city": metadata.get("city"),
                     "state": metadata.get("state"),
                     "postal_code": metadata.get("postal_code"),
                     "country": metadata.get("country"),
-                }
+                },
+            )
 
-                order = Order.objects.create(
-                    user=user,
-                    total_amount=total_price,
-                    stripe_payment_intent=intent["id"],
-                    status="completed",
-                    delivery_address=delivery_address,
+            for item in cart_items:
+                OrderItem.objects.create(
+                    order=order,
+                    product=item.product,
+                    bundle=item.bundle,
+                    quantity=item.quantity,
                 )
 
-                for item in cart_items:
-                    OrderItem.objects.create(
-                        order=order,
+            cart_items.delete()
+
+        # --------------------------------
+        # RENT
+        # --------------------------------
+        elif purchase_type == "rent":
+            duration_days = int(metadata.get("duration_days", 30))
+            cart_items = CartItem.objects.filter(user=user)
+
+            for item in cart_items:
+                if item.product:
+                    Rental.objects.create(
+                        user=user,
                         product=item.product,
-                        bundle=item.bundle,
-                        quantity=item.quantity,
+                        duration_days=duration_days,
+                        amount_paid=item.product.price * item.quantity,
+                        end_date=timezone.now() + timezone.timedelta(days=duration_days),
                     )
 
-                print("🧾 Order created:", order.id)
-
-            elif purchase_type == "rent":
-                duration_days = int(metadata.get("duration_days", 30))
-
-                for item in cart_items:
-                    if item.product:  
-                        amount = float(item.product.price) * item.quantity
-                        end_date = timezone.now() + timezone.timedelta(days=duration_days)
-
-                        rental = Rental.objects.create(
-                            user=user,
-                            product=item.product,
-                            duration_days=duration_days,
-                            amount_paid=amount,
-                            end_date=end_date,
-                        )
-
-                        print("🛠 Rental created:", rental.id)
-
             cart_items.delete()
-            print("🗑 Cart cleared")
+
+        # --------------------------------
+        # HOSTING
+        # --------------------------------
+        elif purchase_type == "hosting":
+            hosting_request_id = metadata.get("hosting_request_id")
+
+            hosting_request = HostingRequest.objects.get(
+                id=hosting_request_id,
+                user=user
+            )
+
+            if hosting_request.is_paid:
+                return Response(status=200)
+
+            hosting_request.is_paid = True
+            hosting_request.payment_reference = intent["id"]
+            hosting_request.status = "paid"
+            hosting_request.save()
+
+            CartItem.objects.filter(user=user).delete()
 
         return Response(status=200)
+
+# @method_decorator(csrf_exempt, name="dispatch")
+# class StripeWebhookView(APIView):
+#     permission_classes = []
+
+#     def post(self, request):
+#         print("\n🔔 Webhook received")
+
+#         payload = request.body
+#         sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
+#         webhook_secret = settings.STRIPE_WEBHOOK_SECRET
+
+#         try:
+#             event = stripe.Webhook.construct_event(
+#                 payload=payload,
+#                 sig_header=sig_header,
+#                 secret=webhook_secret,
+#             )
+#             event_type = event["type"]
+#             print(f"✅ Event verified: {event_type}")
+#         except Exception as e:
+#             print("❌ Verification failed:", e)
+#             return Response({"error": str(e)}, status=400)
+
+#         if event_type == "payment_intent.succeeded":
+#             print("🎉 payment_intent.succeeded received")
+
+#             intent = event["data"]["object"]
+#             metadata = intent.get("metadata", {}) or {}
+
+#             user_id = metadata.get("user_id")
+#             purchase_type = metadata.get("purchase_type")
+
+#             if not user_id or not purchase_type:
+#                 print("⚠ Missing metadata")
+#                 return Response(status=200)
+
+#             User = get_user_model()
+#             user = User.objects.get(id=user_id)
+
+#             cart_items = CartItem.objects.filter(user=user)
+#             if not cart_items.exists():
+#                 print("⚠ Cart empty")
+#                 return Response(status=200)
+
+#             total_price = sum(
+#                 (float(ci.product.price) if ci.product else float(ci.bundle.combo_price)) * ci.quantity
+#                 for ci in cart_items
+#             )
+
+#             if purchase_type == "buy":
+#                 delivery_address = {
+#                     "name": metadata.get("name"),
+#                     "line1": metadata.get("line1"),
+#                     "city": metadata.get("city"),
+#                     "state": metadata.get("state"),
+#                     "postal_code": metadata.get("postal_code"),
+#                     "country": metadata.get("country"),
+#                 }
+
+#                 order = Order.objects.create(
+#                     user=user,
+#                     total_amount=total_price,
+#                     stripe_payment_intent=intent["id"],
+#                     status="completed",
+#                     delivery_address=delivery_address,
+#                 )
+
+#                 for item in cart_items:
+#                     OrderItem.objects.create(
+#                         order=order,
+#                         product=item.product,
+#                         bundle=item.bundle,
+#                         quantity=item.quantity,
+#                     )
+
+#                 print("🧾 Order created:", order.id)
+
+#             elif purchase_type == "rent":
+#                 duration_days = int(metadata.get("duration_days", 30))
+
+#                 for item in cart_items:
+#                     if item.product:  
+#                         amount = float(item.product.price) * item.quantity
+#                         end_date = timezone.now() + timezone.timedelta(days=duration_days)
+
+#                         rental = Rental.objects.create(
+#                             user=user,
+#                             product=item.product,
+#                             duration_days=duration_days,
+#                             amount_paid=amount,
+#                             end_date=end_date,
+#                         )
+
+#                         print("🛠 Rental created:", rental.id)
+
+#             cart_items.delete()
+#             print("🗑 Cart cleared")
+
+#         return Response(status=200)
 
 # ---------------- CHECKOUT -----------------
 from rest_framework.views import APIView
@@ -754,7 +1000,7 @@ class CheckoutView(APIView):
 #10/12/2025
 
 # ---------------- HOSTING REQUEST -----------------
-
+SETUP_FEE = 1150
 
 class CreateHostingRequestView(APIView):
     permission_classes = [IsAuthenticated]
@@ -763,51 +1009,124 @@ class CreateHostingRequestView(APIView):
         user = request.user
         phone = request.data.get("phone")
         message = request.data.get("message", "")
+        hosting_location = request.data.get("hosting_location")
 
         if not phone:
             return Response({"error": "phone is required"}, status=400)
 
-        # Get user cart
-        cart_items = CartItem.objects.filter(user=user)
+        if hosting_location not in ["US", "ET", "UAE"]:
+            return Response({"error": "Invalid hosting location"}, status=400)
 
+        cart_items = CartItem.objects.filter(user=user)
         if not cart_items.exists():
             return Response({"error": "Cart is empty"}, status=400)
 
-        # Create snapshot of items
         snapshot = []
+        items_total = 0
 
         for cart_item in cart_items:
             if cart_item.product:
+                price = cart_item.product.price * cart_item.quantity
+                items_total += price
+
                 snapshot.append({
                     "type": "product",
                     "id": cart_item.product.id,
                     "title": cart_item.product.model_name,
                     "quantity": cart_item.quantity,
-                    "price": str(cart_item.product.price)
+                    "unit_price": str(cart_item.product.price),
+                    "total_price": str(price)
                 })
 
             elif cart_item.bundle:
+                price = cart_item.bundle.price * cart_item.quantity
+                items_total += price
+
                 snapshot.append({
                     "type": "bundle",
                     "id": cart_item.bundle.id,
                     "title": cart_item.bundle.title,
                     "quantity": cart_item.quantity,
-                    "price": str(cart_item.bundle.price)
+                    "unit_price": str(cart_item.bundle.price),
+                    "total_price": str(price)
                 })
 
-        # Save hosting request
+        total_amount = items_total + SETUP_FEE
+
         hosting_request = HostingRequest.objects.create(
             user=user,
             phone=phone,
             message=message,
-            items=snapshot
+            hosting_location=hosting_location,
+            items=snapshot,
+            setup_fee=SETUP_FEE,
+            total_amount=total_amount,
+            is_paid=False
         )
 
-        # Clear cart (optional)
-        cart_items.delete()
+        # ⚠️ DO NOT clear cart yet
+        # Clear only after payment success
 
         return Response({
-            "message": "Hosting request submitted. We will contact you shortly.",
-            "hosting_request_id": hosting_request.id
+            "message": "Hosting request created. Proceed to payment.",
+            "hosting_request_id": hosting_request.id,
+            "items_total": items_total,
+            "setup_fee": SETUP_FEE,
+            "total_amount": total_amount
         }, status=201)
+
+# class CreateHostingRequestView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request):
+#         user = request.user
+#         phone = request.data.get("phone")
+#         message = request.data.get("message", "")
+
+#         if not phone:
+#             return Response({"error": "phone is required"}, status=400)
+
+#         # Get user cart
+#         cart_items = CartItem.objects.filter(user=user)
+
+#         if not cart_items.exists():
+#             return Response({"error": "Cart is empty"}, status=400)
+
+#         # Create snapshot of items
+#         snapshot = []
+
+#         for cart_item in cart_items:
+#             if cart_item.product:
+#                 snapshot.append({
+#                     "type": "product",
+#                     "id": cart_item.product.id,
+#                     "title": cart_item.product.model_name,
+#                     "quantity": cart_item.quantity,
+#                     "price": str(cart_item.product.price)
+#                 })
+
+#             elif cart_item.bundle:
+#                 snapshot.append({
+#                     "type": "bundle",
+#                     "id": cart_item.bundle.id,
+#                     "title": cart_item.bundle.title,
+#                     "quantity": cart_item.quantity,
+#                     "price": str(cart_item.bundle.price)
+#                 })
+
+#         # Save hosting request
+#         hosting_request = HostingRequest.objects.create(
+#             user=user,
+#             phone=phone,
+#             message=message,
+#             items=snapshot
+#         )
+
+#         # Clear cart (optional)
+#         cart_items.delete()
+
+#         return Response({
+#             "message": "Hosting request submitted. We will contact you shortly.",
+#             "hosting_request_id": hosting_request.id
+#         }, status=201)
 
