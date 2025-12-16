@@ -110,14 +110,30 @@ from django.db import models
 from django.conf import settings
 from AdminApp.models import Product, BundleOffer
 
+
 class Order(models.Model):
+    STATUS_CHOICES = (
+        ("processing", "Processing"),
+        ("completed", "Completed"),
+        ("shipped", "Shipped"),
+        ("cancelled", "Cancelled"),
+    )
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2)
     stripe_payment_intent = models.CharField(max_length=255)
-    status = models.CharField(max_length=20, default="completed")
-    created_at = models.DateTimeField(auto_now_add=True)
-    delivery_address = models.JSONField(null=True, blank=True)   #new line
 
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="processing"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    delivery_address = models.JSONField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Order #{self.id} - {self.status}"
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)

@@ -45,5 +45,5 @@ urlpatterns = [
     #hosting
     path("hosting/create/", CreateHostingRequestView.as_view(), name="create-hosting"),
 
-
+    
 ]

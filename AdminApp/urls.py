@@ -27,7 +27,10 @@ urlpatterns = [
     path('hosting/requests/', views.admin_get_all_hosting_requests, name='admin_get_all_hosting_requests'),
     path('hosting/requests/<int:id>/', views.admin_get_hosting_request, name='admin_get_hosting_request'),
     path('hosting/requests/<int:id>/update/', views.admin_update_hosting_request, name='admin_update_hosting_request'),
-    path('hosting/requests/<int:id>/delete/', views.admin_delete_hosting_request, name='admin_delete_hosting_request')
+    path('hosting/requests/<int:id>/delete/', views.admin_delete_hosting_request, name='admin_delete_hosting_request'),
     
-
+    
+    path("orders/", views.admin_list_orders, name="admin-list-orders"),
+    path("orders/<int:id>/", views.admin_order_detail, name="admin-order-detail"),
+    path("orders/<int:id>/status/", views.admin_update_order_status, name="admin-order-status"),
 ]

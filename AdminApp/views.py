@@ -240,3 +240,46 @@ def admin_delete_hosting_request(request, id):
     hosting.delete()
 
     return Response({"message": "Hosting request deleted successfully"})
+
+
+from UserApp.models import Order
+from .serializers import AdminOrderSerializer
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def admin_list_orders(request):
+    orders = Order.objects.all().order_by("-created_at")
+    serializer = AdminOrderSerializer(orders, many=True)
+    return Response(serializer.data, status=200)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def admin_order_detail(request, id):
+    order = get_object_or_404(Order, id=id)
+    serializer = AdminOrderSerializer(order)
+    return Response(serializer.data, status=200)
+
+
+@api_view(['PATCH'])
+@permission_classes([permissions.IsAdminUser])
+def admin_update_order_status(request, id):
+    order = get_object_or_404(Order, id=id)
+
+    new_status = request.data.get("status")
+
+    # ✅ Best practice: read from model choices
+    allowed_statuses = [choice[0] for choice in Order.STATUS_CHOICES]
+
+    if new_status not in allowed_statuses:
+        return Response(
+            {"error": "Invalid status"},
+            status=400
+        )
+
+    order.status = new_status
+    order.save()
+
+    return Response(
+        {"message": "Order status updated successfully"},
+        status=200
+    )
