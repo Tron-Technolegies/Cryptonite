@@ -6,17 +6,22 @@ from AdminApp.models import Product,BundleOffer
 #         model = Product
 #         fields = '__all__'
 class ProductSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
-
+    image_url = serializers.SerializerMethodField(read_only=True)
+    
     class Meta:
         model = Product
-        fields = "__all__"
-
-    def get_image(self, obj):
-        if obj.image:
-            return obj.image.url
-        return None
-
+        fields = [
+            'id', 'model_name', 'description', 'product_details',
+            'minable_coins', 'hashrate', 'power', 'algorithm',
+            'price', 'image', 'image_url', 'hosting_fee_per_kw',
+            'created_at'
+        ]
+        extra_kwargs = {
+            'image': {'write_only': True, 'required': False}
+        }
+    
+    def get_image_url(self, obj):
+        return obj.image.url if obj.image else None
 
 
 
