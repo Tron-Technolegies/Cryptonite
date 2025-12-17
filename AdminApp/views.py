@@ -21,17 +21,19 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import permissions, status
 from rest_framework.response import Response
 
+
 # ---------- CREATE PRODUCT ----------
+from rest_framework.parsers import MultiPartParser, FormParser
+
 @api_view(['POST'])
 @permission_classes([permissions.IsAdminUser])
-@parser_classes([MultiPartParser, FormParser])  # ✅ REQUIRED FOR IMAGE UPLOAD
+@parser_classes([MultiPartParser, FormParser])
 def create_product(request):
     serializer = ProductSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 # ---------- GET ALL PRODUCTS ----------
 @api_view(['GET'])
