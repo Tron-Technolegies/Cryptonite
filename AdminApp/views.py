@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from AdminApp.models import BundleOffer, Product
-from .serializers import BundleOfferSerializer, ProductSerializer
+from .serializers import BundleOfferSerializer
 
 # ---------- CREATE PRODUCT ----------
 
