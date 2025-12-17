@@ -1,4 +1,5 @@
 from django.db import models
+from cloudinary.models import CloudinaryField
 
 class Product(models.Model):
     model_name = models.CharField(max_length=255)
@@ -10,6 +11,7 @@ class Product(models.Model):
     algorithm = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True)
+    image = CloudinaryField("image", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     hosting_fee_per_kw = models.DecimalField(
         max_digits=10,
