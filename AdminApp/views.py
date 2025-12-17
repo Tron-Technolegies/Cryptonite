@@ -6,6 +6,7 @@ from AdminApp.models import Product
 from .serializers import ProductSerializer
 
 # ---------- CREATE PRODUCT ----------
+
 # @api_view(['POST'])
 # @permission_classes([permissions.IsAdminUser])
 # def create_product(request):
@@ -14,48 +15,23 @@ from .serializers import ProductSerializer
 #         serializer.save()
 #         return Response(serializer.data, status=status.HTTP_201_CREATED)
 #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.decorators import api_view, permission_classes, parser_classes
-from rest_framework import permissions, status
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
+from rest_framework import status
 
-@api_view(['POST'])
-@permission_classes([permissions.IsAdminUser])
-@parser_classes([MultiPartParser, FormParser])
-def create_product(request):
-    print("FILES:", request.FILES)   # DEBUG
-    print("DATA:", request.data)
+class AdminProductCreateView(APIView):
+    permission_classes = [IsAdminUser]
+    parser_classes = (MultiPartParser, FormParser)  # 🔥 REQUIRED
 
-    serializer = ProductSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-from rest_framework.decorators import api_view, permission_classes, parser_classes
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework import permissions, status
-from rest_framework.response import Response
-
-
-# ---------- CREATE PRODUCT ----------
-from rest_framework.parsers import MultiPartParser, FormParser
-
-@api_view(['POST'])
-@parser_classes([MultiPartParser, FormParser])
-def create_product(request):
-    serializer = ProductSerializer(data=request.data)
-    
-    if serializer.is_valid():
-        product = serializer.save()
-        return Response(
-            ProductSerializer(product).data,
-            status=status.HTTP_201_CREATED
-        )
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, *args, **kwargs):
+        serializer = ProductSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()   # Cloudinary upload happens here
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # ---------- GET ALL PRODUCTS ----------
 @api_view(['GET'])
