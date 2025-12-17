@@ -21,17 +21,23 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAdminUser
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from .serializers import ProductSerializer
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+@parser_classes([MultiPartParser, FormParser])   # 🔥 REQUIRED
+def create_product(request):
+    serializer = ProductSerializer(data=request.data)
 
-class AdminProductCreateView(APIView):
-    permission_classes = [IsAdminUser]
-    parser_classes = (MultiPartParser, FormParser)  # 🔥 REQUIRED
+    if serializer.is_valid():
+        serializer.save()   # ⬅ Cloudinary upload happens here
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def post(self, request, *args, **kwargs):
-        serializer = ProductSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()   # Cloudinary upload happens here
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # ---------- GET ALL PRODUCTS ----------
 @api_view(['GET'])
