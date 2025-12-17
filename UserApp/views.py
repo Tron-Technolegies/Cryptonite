@@ -1136,18 +1136,30 @@ from rest_framework import status
 from django.core.cache import cache
 import requests
 import traceback
+import requests
+from django.core.cache import cache
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 
 WHAT_TO_MINE_URL = "https://whattomine.com/asic.json"
-CACHE_KEY = "asic_profitability_data"
-CACHE_TTL = 900
+CACHE_KEY = "asic_profitability_raw"
+CACHE_TTL = 900  # 15 minutes
 
 @api_view(["GET"])
 def asic_profitability(request):
     try:
+        # 1️⃣ Check cache
         cached_data = cache.get(CACHE_KEY)
         if cached_data:
-            return Response({"cached": True, "miners": cached_data})
+            return Response({
+                "live": False,
+                "cached": True,
+                "source": "whattomine.com",
+                "data": cached_data
+            })
 
+        # 2️⃣ Fetch external API
         r = requests.get(
             WHAT_TO_MINE_URL,
             headers={"User-Agent": "Mozilla/5.0"},
@@ -1155,31 +1167,24 @@ def asic_profitability(request):
         )
         r.raise_for_status()
 
-        data = r.json()   # ← very common crash point
-        miners = data.get("miners", {})
-        if not miners:
-            return Response({
-                "live": True,
-                "cached": False,
-                "source": "whattomine.com",
-                "miners": [],
-                "message": "Live ASIC profitability data is temporarily unavailable."
-                    })
-        result = []
-        for key, miner in miners.items():
-            result.append({
-                "id": key,
-                "name": miner.get("name"),
-            })
+        data = r.json()  # FULL response
 
-        cache.set(CACHE_KEY, result, CACHE_TTL)
-        return Response({"cached": False, "miners": result})
+        # 3️⃣ Cache full response
+        cache.set(CACHE_KEY, data, CACHE_TTL)
 
-    except Exception as e:
-        print("ASIC ERROR:", str(e))
-        print(traceback.format_exc())
+        return Response({
+            "live": True,
+            "cached": False,
+            "source": "whattomine.com",
+            "data": data
+        })
 
+    except requests.exceptions.RequestException as e:
         return Response(
-            {"error": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {
+                "status": "error",
+                "message": "Failed to fetch data from WhatToMine",
+                "details": str(e)
+            },
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
         )
