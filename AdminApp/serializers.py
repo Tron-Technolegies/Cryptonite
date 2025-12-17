@@ -1,10 +1,21 @@
 from rest_framework import serializers
 from AdminApp.models import Product,BundleOffer
 
+# class ProductSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Product
+#         fields = '__all__'
 class ProductSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = "__all__"
+
+    def get_image(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
 
 
 
