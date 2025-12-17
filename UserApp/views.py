@@ -1157,7 +1157,14 @@ def asic_profitability(request):
 
         data = r.json()   # ← very common crash point
         miners = data.get("miners", {})
-
+        if not miners:
+            return Response({
+                "live": True,
+                "cached": False,
+                "source": "whattomine.com",
+                "miners": [],
+                "message": "Live ASIC profitability data is temporarily unavailable."
+                    })
         result = []
         for key, miner in miners.items():
             result.append({
