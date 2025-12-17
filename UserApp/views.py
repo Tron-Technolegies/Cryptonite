@@ -1130,29 +1130,24 @@ class CreateHostingRequestView(APIView):
 #             "hosting_request_id": hosting_request.id
 #         }, status=201)
 
-import requests
-from django.core.cache import cache
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.core.cache import cache
+import requests
+import traceback
 
 WHAT_TO_MINE_URL = "https://whattomine.com/asic.json"
 CACHE_KEY = "asic_profitability_data"
-CACHE_TTL = 900  # 15 minutes
+CACHE_TTL = 900
 
 @api_view(["GET"])
 def asic_profitability(request):
-    cached_data = cache.get(CACHE_KEY)
-
-    if cached_data:
-        return Response({
-            "live": True,
-            "cached": True,
-            "source": "whattomine.com",
-            "miners": cached_data
-        })
-
     try:
+        cached_data = cache.get(CACHE_KEY)
+        if cached_data:
+            return Response({"cached": True, "miners": cached_data})
+
         r = requests.get(
             WHAT_TO_MINE_URL,
             headers={"User-Agent": "Mozilla/5.0"},
@@ -1160,7 +1155,7 @@ def asic_profitability(request):
         )
         r.raise_for_status()
 
-        data = r.json()
+        data = r.json()   # ← very common crash point
         miners = data.get("miners", {})
 
         result = []
@@ -1168,28 +1163,16 @@ def asic_profitability(request):
             result.append({
                 "id": key,
                 "name": miner.get("name"),
-                "hashrate": miner.get("hashrate"),
-                "power": miner.get("power"),
-                "algorithm": miner.get("algorithm"),
-                "coins": miner.get("coins"),
-                "profitability": miner.get("profitability"),
-                "profitability24": miner.get("profitability24"),
-                "revenue": miner.get("rev"),
-                "revenue24": miner.get("rev24"),
-                "efficiency": miner.get("efficiency"),
             })
 
         cache.set(CACHE_KEY, result, CACHE_TTL)
+        return Response({"cached": False, "miners": result})
 
-        return Response({
-            "live": True,
-            "cached": False,
-            "source": "whattomine.com",
-            "miners": result
-        })
+    except Exception as e:
+        print("ASIC ERROR:", str(e))
+        print(traceback.format_exc())
 
-    except requests.exceptions.RequestException as e:
         return Response(
-            {"error": "Failed to fetch live data", "details": str(e)},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
