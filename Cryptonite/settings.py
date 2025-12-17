@@ -219,6 +219,17 @@ CLOUDINARY_STORAGE = {
     'API_KEY': env("CLOUDINARY_API_KEY"),
     'API_SECRET': env("CLOUDINARY_API_SECRET"),
 }
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "TIMEOUT": 900,  # 15 minutes
+    }
+}
 # GMAIL SETUP FOR SENDING EMAIL
 
 # EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
