@@ -47,16 +47,18 @@ class Product(models.Model):
 
     category = models.CharField(
         max_length=20,
-        choices=CATEGORY_CHOICES
+        choices=CATEGORY_CHOICES,
+        default='null'
     )
 
     # ---------------- BRAND & TECH ----------------
-    brand = models.CharField(max_length=100)
+    brand = models.CharField(max_length=100, default='null')
     efficiency = models.CharField(
         max_length=50,
         blank=True,
         null=True,
         help_text="Example: 29.5 J/TH"
+
     )
     noise = models.CharField(
         max_length=50,
