@@ -1,29 +1,10 @@
 from rest_framework import serializers
 from AdminApp.models import Product,BundleOffer
 
-# class ProductSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Product
-#         fields = '__all__'
 class ProductSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField(read_only=True)
-    
     class Meta:
         model = Product
-        fields = [
-            'id', 'model_name', 'description', 'product_details',
-            'minable_coins', 'hashrate', 'power', 'algorithm',
-            'price', 'image', 'image_url', 'hosting_fee_per_kw',
-            'created_at'
-        ]
-        extra_kwargs = {
-            'image': {'write_only': True, 'required': False}
-        }
-    
-    def get_image_url(self, obj):
-        return obj.image.url if obj.image else None
-
-
+        fields = '__all__'
 
 class BundleOfferSerializer(serializers.ModelSerializer):
     products = serializers.PrimaryKeyRelatedField(

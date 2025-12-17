@@ -14,6 +14,24 @@ from .serializers import ProductSerializer
 #         serializer.save()
 #         return Response(serializer.data, status=status.HTTP_201_CREATED)
 #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework import permissions, status
+from rest_framework.response import Response
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAdminUser])
+@parser_classes([MultiPartParser, FormParser])
+def create_product(request):
+    print("FILES:", request.FILES)   # DEBUG
+    print("DATA:", request.data)
+
+    serializer = ProductSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 from rest_framework.decorators import api_view, permission_classes, parser_classes
@@ -38,6 +56,7 @@ def create_product(request):
         )
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 # ---------- GET ALL PRODUCTS ----------
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
