@@ -10,7 +10,6 @@ class Product(models.Model):
     power = models.CharField(max_length=100)
     algorithm = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
-    image = models.ImageField(upload_to='products/', blank=True, null=True)
     image = CloudinaryField("image", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     hosting_fee_per_kw = models.DecimalField(
