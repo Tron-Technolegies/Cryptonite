@@ -2,8 +2,8 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status, permissions
-from AdminApp.models import Product
-from .serializers import ProductSerializer
+from AdminApp.models import BundleOffer, Product
+from .serializers import BundleOfferSerializer, ProductSerializer
 
 # ---------- CREATE PRODUCT ----------
 
@@ -23,29 +23,26 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .serializers import ProductSerializer
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.response import Response
+from rest_framework import status
 
+from .serializers import ProductCreateSerializer
 
+# ----------CREATE PRODUCTS ----------
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 @parser_classes([MultiPartParser, FormParser])
-def add_product(request):
-    """
-    Admin: Add a new product with image upload (Cloudinary)
-    """
-    serializer = ProductSerializer(data=request.data)
+def create_product(request):
+    serializer = ProductCreateSerializer(data=request.data)
 
     if serializer.is_valid():
-        product = serializer.save()   # Cloudinary upload happens here
-        return Response(
-            {
-                "message": "Product added successfully",
-                "product": ProductSerializer(product).data
-            },
-            status=status.HTTP_201_CREATED
-        )
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 # ---------- GET ALL PRODUCTS ----------
 @api_view(['GET'])
@@ -69,49 +66,21 @@ def get_product(request, id):
 
 
 # ---------- UPDATE PRODUCT ----------
-# @api_view(['PUT', 'PATCH'])
-# @permission_classes([permissions.IsAdminUser])
-# def update_product(request, id):
-#     try:
-#         product = Product.objects.get(id=id)
-#     except Product.DoesNotExist:
-#         return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
 
-#     serializer = ProductSerializer(product, data=request.data, partial=True)
-#     if serializer.is_valid():
-#         serializer.save()
-#         return Response(serializer.data)
-#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-from django.shortcuts import get_object_or_404
-
-
-@api_view(["PUT", "PATCH"])
-@permission_classes([IsAdminUser])
-@parser_classes([MultiPartParser, FormParser])
+@api_view(['PUT', 'PATCH'])
+@permission_classes([permissions.IsAdminUser])
 def update_product(request, id):
-    """
-    Admin: Update product details (image optional)
-    """
-    product = get_object_or_404(Product, id=id)
+    try:
+        product = Product.objects.get(id=id)
+    except Product.DoesNotExist:
+        return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    serializer = ProductSerializer(
-        product,
-        data=request.data,
-        partial=True   # Allows updating only required fields
-    )
-
+    serializer = ProductSerializer(product, data=request.data, partial=True)
     if serializer.is_valid():
         serializer.save()
-        return Response(
-            {
-                "message": "Product updated successfully",
-                "product": serializer.data
-            },
-            status=status.HTTP_200_OK
-        )
-
+        return Response(serializer.data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 # ---------- DELETE PRODUCT ----------
 @api_view(['DELETE'])
@@ -123,131 +92,6 @@ def delete_product(request, id):
         return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
     product.delete()
     return Response({'message': 'Product deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
-
-
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.response import Response
-from rest_framework import status, permissions
-from .models import BundleOffer
-from .serializers import BundleOfferSerializer
-
-
-
-import pandas as pd
-import requests
-
-from django.core.files.base import ContentFile
-from rest_framework.decorators import api_view, permission_classes, parser_classes
-from rest_framework.permissions import IsAdminUser
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.response import Response
-from rest_framework import status
-
-from .models import Product
-from .serializers import ProductBulkUploadSerializer, ProductSerializer
-@api_view(["POST"])
-@permission_classes([IsAdminUser])
-@parser_classes([MultiPartParser, FormParser])
-def bulk_upload_products(request):
-    """
-    Admin bulk upload products using Excel
-    """
-    serializer = ProductBulkUploadSerializer(data=request.data)
-
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    excel_file = serializer.validated_data["file"]
-
-    try:
-        df = pd.read_excel(excel_file)
-    except Exception:
-        return Response(
-            {"error": "Invalid Excel file"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    created_count = 0
-    updated_count = 0
-    failed_rows = []
-
-    for index, row in df.iterrows():
-        try:
-            model_name = str(row["model_name"]).strip()
-
-            product, created = Product.objects.get_or_create(
-                model_name=model_name
-            )
-
-            data = {
-                "model_name": model_name, 
-                "description": row.get("description"),
-                # "product_details": row.get("product_details"),
-                "minable_coins": row.get("minable_coins"),
-                "hashrate": row.get("hashrate"),
-                "power": row.get("power"),
-                "algorithm": row.get("algorithm"),
-                "price": row.get("price"),
-                "category": row.get("category"),
-                "brand": row.get("brand"),
-                "efficiency": row.get("efficiency"),
-                "noise": row.get("noise"),
-                "delivery_type": row.get("delivery_type", "spot"),
-                "delivery_date": row.get("delivery_date"),
-                "is_available": str(row.get("is_available", "yes")).lower() == "yes",
-            }
-
-            product_serializer = ProductSerializer(
-                product,
-                data=data,
-                partial=True
-            )
-
-            if product_serializer.is_valid():
-                product_serializer.save()
-
-                # ---- IMAGE (optional via URL) ----
-                image_url = row.get("image_url")
-                if image_url and isinstance(image_url, str):
-                    response = requests.get(image_url, timeout=10)
-                    if response.status_code == 200:
-                        product.image.save(
-                            f"{model_name}.jpg",
-                            ContentFile(response.content),
-                            save=True
-                        )
-
-                if created:
-                    created_count += 1
-                else:
-                    updated_count += 1
-            else:
-                failed_rows.append({
-                    "row": index + 2,
-                    "errors": product_serializer.errors
-                })
-
-        except Exception as e:
-            failed_rows.append({
-                "row": index + 2,
-                "error": str(e)
-            })
-
-    return Response({
-        "message": "Bulk upload finished",
-        "created": created_count,
-        "updated": updated_count,
-        "failed_rows": failed_rows
-    }, status=status.HTTP_200_OK)
-
-
-
-
-
-
-
-
-
 
 
 

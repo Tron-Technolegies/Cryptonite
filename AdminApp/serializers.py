@@ -1,31 +1,30 @@
 from rest_framework import serializers
 from AdminApp.models import Product,BundleOffer
 
+from rest_framework import serializers
+from .models import Product
 
-class ProductBulkUploadSerializer(serializers.Serializer):
-    file = serializers.FileField()
-    
-class ProductSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(required=False, allow_null=True)
 
+class ProductCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = "__all__"
 
-    def validate(self, attrs):
-        """
-        Business validation:
-        - If delivery_type is 'future', delivery_date must be provided
-        """
-        delivery_type = attrs.get("delivery_type")
-        delivery_date = attrs.get("delivery_date")
+    def validate(self, data):
+        delivery_type = data.get("delivery_type")
+        delivery_date = data.get("delivery_date")
 
         if delivery_type == "future" and not delivery_date:
             raise serializers.ValidationError({
-                "delivery_date": "Delivery date is required when delivery type is 'Future'."
+                "delivery_date": "Delivery date is required for future delivery type."
             })
 
-        return attrs
+        if delivery_type == "spot" and delivery_date:
+            raise serializers.ValidationError({
+                "delivery_date": "Delivery date should be empty for spot delivery type."
+            })
+
+        return data
 
 
 
