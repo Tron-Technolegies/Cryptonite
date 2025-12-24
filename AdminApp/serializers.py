@@ -43,8 +43,7 @@ class ProductMiniSerializer(serializers.ModelSerializer):
 
 
 class BundleOfferSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(required=False, allow_null=True)
-    image_url = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
     products = ProductMiniSerializer(many=True, read_only=True)
 
     class Meta:
