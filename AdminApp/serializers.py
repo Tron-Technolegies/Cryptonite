@@ -41,24 +41,14 @@ class ProductMiniSerializer(serializers.ModelSerializer):
         fields = ["id", "model_name", "price", "image"]
 
 
+      
 class BundleOfferSerializer(serializers.ModelSerializer):
-    # image = serializers.SerializerMethodField()
-     # 1️⃣ WRITE FIELD → accepts uploaded image
-    image = serializers.ImageField(write_only=True, required=False)
-
-    # 2️⃣ READ FIELD → returns Cloudinary URL
-    image_url = serializers.SerializerMethodField(read_only=True)
+    image = serializers.ImageField(required=False, allow_null=True)
     products = ProductMiniSerializer(many=True, read_only=True)
 
     class Meta:
         model = BundleOffer
         fields = "__all__"
-    
-    def get_image(self, obj):
-        if obj.image:
-            return obj.image.url
-        return None
-        
 
 
 from rest_framework import serializers

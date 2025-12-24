@@ -113,7 +113,8 @@ class BundleOffer(models.Model):
     total_hashrate = models.CharField(max_length=100, blank=True, null=True)  
     total_power = models.CharField(max_length=100, blank=True, null=True)
 
-    image = CloudinaryField("image", blank=True, null=True)
+    # image = CloudinaryField("image", blank=True, null=True)
+    image = models.ImageField(upload_to="bundle_offers/", blank=True, null=True)
 
 
     created_at = models.DateTimeField(auto_now_add=True)
