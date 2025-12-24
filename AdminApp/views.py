@@ -110,20 +110,24 @@ def delete_product(request, id):
 @permission_classes([permissions.IsAdminUser])
 @parser_classes([MultiPartParser, FormParser])
 def create_bundle_offer(request):
-    serializer = BundleOfferSerializer(data=request.data)
+    serializer = BundleOfferCreateSerializer(data=request.data)
+
     if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        bundle = serializer.save()
+        return Response(
+            BundleOfferSerializer(bundle).data,
+            status=status.HTTP_201_CREATED
+        )
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # ---------- GET ALL BUNDLES ----------
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def get_bundle_offers(request):
-    bundles = BundleOffer.objects.all().order_by('-created_at')
-    serializer = BundleOfferSerializer(bundles, many=True,context={"request": request})
+    bundles = BundleOffer.objects.prefetch_related("products").order_by("-created_at")
+    serializer = BundleOfferSerializer(bundles, many=True)
     return Response(serializer.data)
-
 
 
 # ---------- GET SINGLE BUNDLE ----------

@@ -52,19 +52,23 @@ class ProductMiniSerializer(serializers.ModelSerializer):
             return obj.image.url
         return None
 
-
-
+#show bundles to users
 class BundleOfferSerializer(serializers.ModelSerializer):
-    # READ (GET)
     image = serializers.SerializerMethodField()
+    products = ProductMiniSerializer(many=True, read_only=True)
 
-    # WRITE (POST / PUT)
-    image_file = serializers.ImageField(
-        write_only=True,
-        required=False,
-        source="image"
-    )
+    class Meta:
+        model = BundleOffer
+        fields = "__all__"
 
+    def get_image(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
+
+
+#create/update
+class BundleOfferCreateSerializer(serializers.ModelSerializer):
     products = serializers.PrimaryKeyRelatedField(
         queryset=Product.objects.all(),
         many=True
@@ -73,12 +77,6 @@ class BundleOfferSerializer(serializers.ModelSerializer):
     class Meta:
         model = BundleOffer
         fields = "__all__"
-
-    def get_image(self, obj):
-        if obj.image:
-            return obj.image.url  # Cloudinary URL
-        return None
-
 
 from UserApp.models import HostingRequest
 
