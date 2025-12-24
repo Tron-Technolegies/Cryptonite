@@ -41,9 +41,10 @@ class ProductMiniSerializer(serializers.ModelSerializer):
         fields = ["id", "model_name", "price", "image"]
 
 
-      
+
 class BundleOfferSerializer(serializers.ModelSerializer):
     image = serializers.ImageField(required=False, allow_null=True)
+    image_url = serializers.SerializerMethodField()
     products = ProductMiniSerializer(many=True, read_only=True)
 
     class Meta:
@@ -52,13 +53,10 @@ class BundleOfferSerializer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         if obj.image:
-            request = self.context.get("request")
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
+            return obj.image.url  
         return None
     
-    
+
 from rest_framework import serializers
 from UserApp.models import HostingRequest
 
