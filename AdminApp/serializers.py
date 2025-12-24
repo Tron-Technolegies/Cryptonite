@@ -42,7 +42,12 @@ class ProductMiniSerializer(serializers.ModelSerializer):
 
 
 class BundleOfferSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
+    # image = serializers.SerializerMethodField()
+     # 1️⃣ WRITE FIELD → accepts uploaded image
+    image = serializers.ImageField(write_only=True, required=False)
+
+    # 2️⃣ READ FIELD → returns Cloudinary URL
+    image_url = serializers.SerializerMethodField(read_only=True)
     products = ProductMiniSerializer(many=True, read_only=True)
 
     class Meta:
@@ -56,18 +61,6 @@ class BundleOfferSerializer(serializers.ModelSerializer):
         
 
 
-# class BundleOfferSerializer(serializers.ModelSerializer):
-#     products = serializers.PrimaryKeyRelatedField(
-#         many=True,
-#         queryset=Product.objects.all()
-#     )
-
-#     class Meta:
-#         model = BundleOffer
-#         fields = "__all__"
-
-
-# 10/12/25
 from rest_framework import serializers
 from UserApp.models import HostingRequest
 
