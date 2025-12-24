@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model, authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
-from .serializers import RegisterSerializer
+from .serializers import RegisterSerializer, UserOrderSerializer
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
@@ -128,7 +128,7 @@ class ForgotPasswordView(APIView):
         token = token_generator.make_token(user)
 
         # Example reset URL — your frontend will handle this page
-        reset_link = f"http://localhost:3000/reset-password/{uid}/{token}"
+        reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
 
         # Send email (for now, console output)
         send_mail(
@@ -314,47 +314,6 @@ class CartTotalView(APIView):
 
         return Response({"total_price": total_price})
 
-
-
-# ---------------- RENT MINER -----------------
-
-# from rest_framework import generics, status
-# from rest_framework.permissions import IsAuthenticated
-# from rest_framework.response import Response
-# from datetime import datetime, timedelta, timezone
-# from AdminApp.models import Product
-# from .models import Rental
-# from .serializers import RentalSerializer
-
-# class RentMinerView(generics.CreateAPIView):
-#     serializer_class = RentalSerializer
-#     permission_classes = [IsAuthenticated]
-
-#     def post(self, request, *args, **kwargs):
-#         product_id = request.data.get("product_id")
-#         duration = int(request.data.get("duration_days", 30))
-#         amount = request.data.get("amount_paid")
-
-#         try:
-#             product = Product.objects.get(id=product_id)
-#         except Product.DoesNotExist:
-#             return Response({"error": "Product not found"}, status=404)
-
-#         end_date = datetime.now() + timedelta(days=duration)
-
-#         rental = Rental.objects.create(
-#             user=request.user,
-#             product=product,
-#             duration_days=duration,
-#             amount_paid=amount,
-#             end_date=end_date
-#         )
-
-#         return Response({
-#             "message": "Miner rented successfully",
-#             "rental_id": rental.id,
-#             "end_date": rental.end_date
-#         }, status=201)
 
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
@@ -642,96 +601,11 @@ class CreatePaymentIntentView(APIView):
         })
 
 
-# class CreatePaymentIntentView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def post(self, request):
-#         user = request.user
-#         purchase_type = request.data.get("purchase_type")  # "buy" or "rent"
-
-#         if purchase_type not in ["buy", "rent"]:
-#             return Response({"error": "purchase_type must be 'buy' or 'rent'"},
-#                             status=status.HTTP_400_BAD_REQUEST)
-
-#         # 1) Calculate total
-#         total_price, cart_items = calculate_cart_total(user)
-#         if not cart_items.exists():
-#             return Response({"error": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
-
-#         # 2) BUY → address required
-#         address = None
-#         save_address = False
-
-#         if purchase_type == "buy":
-#             address = request.data.get("address")
-#             save_address = request.data.get("save_address", False)
-
-#             if not address:
-#                 return Response({"error": "Address is required for purchase_type='buy'"},
-#                                 status=status.HTTP_400_BAD_REQUEST)
-
-#             if save_address:
-#                 user.shipping_address = address
-#                 user.save()
-
-#         # 3) RENT → duration required
-#         duration_days = None
-#         if purchase_type == "rent":
-#             duration_days = request.data.get("duration_days", 30)
-#             try:
-#                 duration_days = int(duration_days)
-#             except ValueError:
-#                 return Response({"error": "duration_days must be an integer"},
-#                                 status=status.HTTP_400_BAD_REQUEST)
-
-#         # 4) Stripe needs amount in cents
-#         amount_in_cents = int(total_price * 100)
-
-#         # 5) Build metadata for webhook
-#         metadata = {
-#             "user_id": str(user.id),
-#             "purchase_type": purchase_type,
-#         }
-
-#         if purchase_type == "rent":
-#             metadata["duration_days"] = str(duration_days)
-
-#         if purchase_type == "buy":
-#             metadata.update({
-#                 "name": address.get("name", ""),
-#                 "line1": address.get("line1", ""),
-#                 "city": address.get("city", ""),
-#                 "state": address.get("state", ""),
-#                 "postal_code": address.get("postal_code", ""),
-#                 "country": address.get("country", ""),
-#             })
-
-#         # 6) Stripe PaymentIntent
-#         intent = stripe.PaymentIntent.create(
-#             amount=amount_in_cents,
-#             currency="usd",
-#             metadata=metadata,
-#         )
-
-#         return Response({
-#             "client_secret": intent.client_secret,
-#             "amount": total_price,
-#             "currency": "usd"
-#         })
-
-
 
 # ---------------- STRIPE WEBHOOK -----------------
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from django.conf import settings
-import stripe
-
 from django.contrib.auth import get_user_model
 from .models import CartItem, Order, OrderItem
-
 stripe.api_key = settings.STRIPE_SECRET_KEY
 import stripe
 from django.conf import settings
@@ -859,105 +733,6 @@ class StripeWebhookView(APIView):
 
         return Response(status=200)
 
-# @method_decorator(csrf_exempt, name="dispatch")
-# class StripeWebhookView(APIView):
-#     permission_classes = []
-
-#     def post(self, request):
-#         print("\n🔔 Webhook received")
-
-#         payload = request.body
-#         sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
-#         webhook_secret = settings.STRIPE_WEBHOOK_SECRET
-
-#         try:
-#             event = stripe.Webhook.construct_event(
-#                 payload=payload,
-#                 sig_header=sig_header,
-#                 secret=webhook_secret,
-#             )
-#             event_type = event["type"]
-#             print(f"✅ Event verified: {event_type}")
-#         except Exception as e:
-#             print("❌ Verification failed:", e)
-#             return Response({"error": str(e)}, status=400)
-
-#         if event_type == "payment_intent.succeeded":
-#             print("🎉 payment_intent.succeeded received")
-
-#             intent = event["data"]["object"]
-#             metadata = intent.get("metadata", {}) or {}
-
-#             user_id = metadata.get("user_id")
-#             purchase_type = metadata.get("purchase_type")
-
-#             if not user_id or not purchase_type:
-#                 print("⚠ Missing metadata")
-#                 return Response(status=200)
-
-#             User = get_user_model()
-#             user = User.objects.get(id=user_id)
-
-#             cart_items = CartItem.objects.filter(user=user)
-#             if not cart_items.exists():
-#                 print("⚠ Cart empty")
-#                 return Response(status=200)
-
-#             total_price = sum(
-#                 (float(ci.product.price) if ci.product else float(ci.bundle.combo_price)) * ci.quantity
-#                 for ci in cart_items
-#             )
-
-#             if purchase_type == "buy":
-#                 delivery_address = {
-#                     "name": metadata.get("name"),
-#                     "line1": metadata.get("line1"),
-#                     "city": metadata.get("city"),
-#                     "state": metadata.get("state"),
-#                     "postal_code": metadata.get("postal_code"),
-#                     "country": metadata.get("country"),
-#                 }
-
-#                 order = Order.objects.create(
-#                     user=user,
-#                     total_amount=total_price,
-#                     stripe_payment_intent=intent["id"],
-#                     status="completed",
-#                     delivery_address=delivery_address,
-#                 )
-
-#                 for item in cart_items:
-#                     OrderItem.objects.create(
-#                         order=order,
-#                         product=item.product,
-#                         bundle=item.bundle,
-#                         quantity=item.quantity,
-#                     )
-
-#                 print("🧾 Order created:", order.id)
-
-#             elif purchase_type == "rent":
-#                 duration_days = int(metadata.get("duration_days", 30))
-
-#                 for item in cart_items:
-#                     if item.product:  
-#                         amount = float(item.product.price) * item.quantity
-#                         end_date = timezone.now() + timezone.timedelta(days=duration_days)
-
-#                         rental = Rental.objects.create(
-#                             user=user,
-#                             product=item.product,
-#                             duration_days=duration_days,
-#                             amount_paid=amount,
-#                             end_date=end_date,
-#                         )
-
-#                         print("🛠 Rental created:", rental.id)
-
-#             cart_items.delete()
-#             print("🗑 Cart cleared")
-
-#         return Response(status=200)
 
 # ---------------- CHECKOUT -----------------
 from rest_framework.views import APIView
@@ -1075,60 +850,7 @@ class CreateHostingRequestView(APIView):
             "total_amount": total_amount
         }, status=201)
 
-# class CreateHostingRequestView(APIView):
-#     permission_classes = [IsAuthenticated]
 
-#     def post(self, request):
-#         user = request.user
-#         phone = request.data.get("phone")
-#         message = request.data.get("message", "")
-
-#         if not phone:
-#             return Response({"error": "phone is required"}, status=400)
-
-#         # Get user cart
-#         cart_items = CartItem.objects.filter(user=user)
-
-#         if not cart_items.exists():
-#             return Response({"error": "Cart is empty"}, status=400)
-
-#         # Create snapshot of items
-#         snapshot = []
-
-#         for cart_item in cart_items:
-#             if cart_item.product:
-#                 snapshot.append({
-#                     "type": "product",
-#                     "id": cart_item.product.id,
-#                     "title": cart_item.product.model_name,
-#                     "quantity": cart_item.quantity,
-#                     "price": str(cart_item.product.price)
-#                 })
-
-#             elif cart_item.bundle:
-#                 snapshot.append({
-#                     "type": "bundle",
-#                     "id": cart_item.bundle.id,
-#                     "title": cart_item.bundle.title,
-#                     "quantity": cart_item.quantity,
-#                     "price": str(cart_item.bundle.price)
-#                 })
-
-#         # Save hosting request
-#         hosting_request = HostingRequest.objects.create(
-#             user=user,
-#             phone=phone,
-#             message=message,
-#             items=snapshot
-#         )
-
-#         # Clear cart (optional)
-#         cart_items.delete()
-
-#         return Response({
-#             "message": "Hosting request submitted. We will contact you shortly.",
-#             "hosting_request_id": hosting_request.id
-#         }, status=201)
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -1188,3 +910,21 @@ def asic_profitability(request):
             },
             status=status.HTTP_503_SERVICE_UNAVAILABLE
         )
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_orders(request):
+    orders = (
+        Order.objects
+        .filter(user=request.user)
+        .order_by("-created_at")
+        .prefetch_related("items", "items__product", "items__bundle")
+    )
+
+    serializer = UserOrderSerializer(orders, many=True)
+    return Response(serializer.data, status=200)

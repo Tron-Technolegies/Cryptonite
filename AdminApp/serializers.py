@@ -35,17 +35,36 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 
         return data
 
+class ProductMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ["id", "model_name", "price", "image"]
 
 
 class BundleOfferSerializer(serializers.ModelSerializer):
-    products = serializers.PrimaryKeyRelatedField(
-        many=True,
-        queryset=Product.objects.all()
-    )
+    image = serializers.SerializerMethodField()
+    products = ProductMiniSerializer(many=True, read_only=True)
 
     class Meta:
         model = BundleOffer
         fields = "__all__"
+    
+    def get_image(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
+        
+
+
+# class BundleOfferSerializer(serializers.ModelSerializer):
+#     products = serializers.PrimaryKeyRelatedField(
+#         many=True,
+#         queryset=Product.objects.all()
+#     )
+
+#     class Meta:
+#         model = BundleOffer
+#         fields = "__all__"
 
 
 # 10/12/25

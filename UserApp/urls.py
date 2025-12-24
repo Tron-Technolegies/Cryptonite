@@ -47,5 +47,9 @@ urlpatterns = [
     #hosting
     path("hosting/create/", CreateHostingRequestView.as_view(), name="create-hosting"),
 
-    path("asic-profitability/", views.asic_profitability, name='asic_profitability')
+    path("asic-profitability/", views.asic_profitability, name='asic_profitability'),
+
+    path("orders/my-orders/", views.my_orders, name="my-orders"),
+    
+    
 ]

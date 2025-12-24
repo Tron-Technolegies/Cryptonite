@@ -122,26 +122,26 @@ class AdminUserListSerializer(serializers.ModelSerializer):
 
 
 
-class OrderItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OrderItem
-        fields = ["id", "product", "bundle", "quantity"]
+# class OrderItemSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = OrderItem
+#         fields = ["id", "product", "bundle", "quantity"]
 
 
-class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, read_only=True)
+# class OrderSerializer(serializers.ModelSerializer):
+#     items = OrderItemSerializer(many=True, read_only=True)
 
-    class Meta:
-        model = Order
-        fields = [
-            "id",
-            "user",
-            "total_amount",
-            "stripe_payment_intent",
-            "status",
-            "created_at",
-            "items"
-        ]
+#     class Meta:
+#         model = Order
+#         fields = [
+#             "id",
+#             "user",
+#             "total_amount",
+#             "stripe_payment_intent",
+#             "status",
+#             "created_at",
+#             "items"
+#         ]
 
 
 
@@ -154,3 +154,38 @@ class HostingRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = HostingRequest
         fields = "__all__"
+
+
+class UserOrderItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.model_name", read_only=True)
+    bundle_name = serializers.CharField(source="bundle.name", read_only=True)
+
+    class Meta:
+        model = OrderItem
+        fields = [
+            "id",
+            "product",
+            "product_name",
+            "bundle",
+            "bundle_name",
+            "quantity",
+        ]
+
+
+class UserOrderSerializer(serializers.ModelSerializer):
+    items = UserOrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            "id",
+            "status",
+            "total_amount",
+            "delivery_address",
+            "stripe_payment_intent",
+            "created_at",
+            "items",
+        ]
+
+
+
