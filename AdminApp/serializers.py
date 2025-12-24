@@ -50,7 +50,15 @@ class BundleOfferSerializer(serializers.ModelSerializer):
         model = BundleOffer
         fields = "__all__"
 
-
+    def get_image(self, obj):
+        if obj.image:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
+    
+    
 from rest_framework import serializers
 from UserApp.models import HostingRequest
 

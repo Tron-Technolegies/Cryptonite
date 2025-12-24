@@ -121,7 +121,7 @@ def create_bundle_offer(request):
 @permission_classes([permissions.AllowAny])
 def get_bundle_offers(request):
     bundles = BundleOffer.objects.all().order_by('-created_at')
-    serializer = BundleOfferSerializer(bundles, many=True)
+    serializer = BundleOfferSerializer(bundles, many=True,context={"request": request})
     return Response(serializer.data)
 
 
