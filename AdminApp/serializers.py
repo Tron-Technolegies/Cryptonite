@@ -35,16 +35,31 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 
         return data
 
-class ProductMiniSerializer(serializers.ModelSerializer):
+
+
     class Meta:
         model = Product
         fields = ["id", "model_name", "price", "image"]
+class ProductMiniSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = ["id", "model_name", "price", "image"]
+
+    def get_image(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
 
 
 
 class BundleOfferSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
-    products = ProductMiniSerializer(many=True, read_only=True)
+    products = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(),
+        many=True
+    )
 
     class Meta:
         model = BundleOffer
@@ -52,11 +67,27 @@ class BundleOfferSerializer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         if obj.image:
-            return obj.image.url  
+            return obj.image.url  # Cloudinary URL
         return None
-    
 
-from rest_framework import serializers
+    def to_representation(self, instance):
+        """
+        For GET requests:
+        return product details instead of just IDs
+        """
+        data = super().to_representation(instance)
+
+        request = self.context.get("request")
+        if request and request.method == "GET":
+            data["products"] = ProductMiniSerializer(
+                instance.products.all(),
+                many=True
+            ).data
+
+        return data
+
+
+
 from UserApp.models import HostingRequest
 
 class AdminHostingRequestSerializer(serializers.ModelSerializer):
