@@ -39,20 +39,6 @@ class CartItem(models.Model):
     
 
 
-# class Rental(models.Model):
-#     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-
-#     start_date = models.DateTimeField(auto_now_add=True)
-#     end_date = models.DateTimeField()
-    
-#     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
-#     duration_days = models.PositiveIntegerField()  # ex: 30, 60, 90
-
-#     is_active = models.BooleanField(default=True)
-
-#     def __str__(self):
-#         return f"{self.user.email} rented {self.product.model_name}"
 
 
 class Rental(models.Model):
@@ -181,3 +167,15 @@ class HostingRequest(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+
+
+class Invoice(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    invoice_number = models.CharField(max_length=50, unique=True)
+    purchase_type = models.CharField(max_length=20)
+    related_id = models.PositiveIntegerField()  # order_id / rental_id / hosting_id
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=10, default="USD")
+    stripe_payment_intent = models.CharField(max_length=255)
+    invoice_data = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)

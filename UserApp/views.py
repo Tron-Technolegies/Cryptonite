@@ -602,21 +602,155 @@ class CreatePaymentIntentView(APIView):
 
 
 
+# # ---------------- STRIPE WEBHOOK -----------------
+# from django.conf import settings
+# from django.contrib.auth import get_user_model
+# from .models import CartItem, Order, OrderItem
+# stripe.api_key = settings.STRIPE_SECRET_KEY
+# import stripe
+# from django.conf import settings
+# from django.views.decorators.csrf import csrf_exempt
+# from django.utils.decorators import method_decorator
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from django.contrib.auth import get_user_model
+# from django.utils import timezone
+
+# from .models import CartItem, Order, OrderItem, Rental, HostingRequest
+
+# stripe.api_key = settings.STRIPE_SECRET_KEY
+
+
+# @method_decorator(csrf_exempt, name="dispatch")
+# class StripeWebhookView(APIView):
+#     permission_classes = []
+
+#     def post(self, request):
+#         payload = request.body
+#         sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
+
+#         try:
+#             event = stripe.Webhook.construct_event(
+#                 payload,
+#                 sig_header,
+#                 settings.STRIPE_WEBHOOK_SECRET
+#             )
+#         except Exception as e:
+#             return Response({"error": str(e)}, status=400)
+
+#         if event["type"] != "payment_intent.succeeded":
+#             return Response(status=200)
+
+#         intent = event["data"]["object"]
+#         metadata = intent.get("metadata", {})
+
+#         user_id = metadata.get("user_id")
+#         purchase_type = metadata.get("purchase_type")
+
+#         if not user_id or not purchase_type:
+#             return Response(status=200)
+
+#         User = get_user_model()
+#         user = User.objects.get(id=user_id)
+
+#         # --------------------------------
+#         # BUY
+#         # --------------------------------
+#         if purchase_type == "buy":
+#             cart_items = CartItem.objects.filter(user=user)
+#             if not cart_items.exists():
+#                 return Response(status=200)
+
+#             total_price = sum(
+#                 (ci.product.price if ci.product else ci.bundle.price) * ci.quantity
+#                 for ci in cart_items
+#             )
+
+#             order = Order.objects.create(
+#                 user=user,
+#                 total_amount=total_price,
+#                 stripe_payment_intent=intent["id"],
+#                 status="completed",
+#                 delivery_address={
+#                     "name": metadata.get("name"),
+#                     "line1": metadata.get("line1"),
+#                     "city": metadata.get("city"),
+#                     "state": metadata.get("state"),
+#                     "postal_code": metadata.get("postal_code"),
+#                     "country": metadata.get("country"),
+#                 },
+#             )
+
+#             for item in cart_items:
+#                 OrderItem.objects.create(
+#                     order=order,
+#                     product=item.product,
+#                     bundle=item.bundle,
+#                     quantity=item.quantity,
+#                 )
+
+#             cart_items.delete()
+
+#         # --------------------------------
+#         # RENT
+#         # --------------------------------
+#         elif purchase_type == "rent":
+#             duration_days = int(metadata.get("duration_days", 30))
+#             cart_items = CartItem.objects.filter(user=user)
+
+#             for item in cart_items:
+#                 if item.product:
+#                     Rental.objects.create(
+#                         user=user,
+#                         product=item.product,
+#                         duration_days=duration_days,
+#                         amount_paid=item.product.price * item.quantity,
+#                         end_date=timezone.now() + timezone.timedelta(days=duration_days),
+#                     )
+
+#             cart_items.delete()
+
+#         # --------------------------------
+#         # HOSTING
+#         # --------------------------------
+#         elif purchase_type == "hosting":
+#             hosting_request_id = metadata.get("hosting_request_id")
+
+#             hosting_request = HostingRequest.objects.get(
+#                 id=hosting_request_id,
+#                 user=user
+#             )
+
+#             if hosting_request.is_paid:
+#                 return Response(status=200)
+
+#             hosting_request.is_paid = True
+#             hosting_request.payment_reference = intent["id"]
+#             hosting_request.status = "paid"
+#             hosting_request.save()
+
+#             CartItem.objects.filter(user=user).delete()
+
+#         return Response(status=200)
 # ---------------- STRIPE WEBHOOK -----------------
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from .models import CartItem, Order, OrderItem
-stripe.api_key = settings.STRIPE_SECRET_KEY
+
 import stripe
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.utils import timezone
+from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.contrib.auth import get_user_model
-from django.utils import timezone
 
-from .models import CartItem, Order, OrderItem, Rental, HostingRequest
+from .models import (
+    CartItem,
+    Order,
+    OrderItem,
+    Rental,
+    HostingRequest,
+    Invoice,
+)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -638,11 +772,16 @@ class StripeWebhookView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=400)
 
+        # We only care about successful payments
         if event["type"] != "payment_intent.succeeded":
             return Response(status=200)
 
         intent = event["data"]["object"]
         metadata = intent.get("metadata", {})
+
+        # 🔐 DUPLICATE PROTECTION (VERY IMPORTANT)
+        if Invoice.objects.filter(stripe_payment_intent=intent["id"]).exists():
+            return Response(status=200)
 
         user_id = metadata.get("user_id")
         purchase_type = metadata.get("purchase_type")
@@ -653,9 +792,9 @@ class StripeWebhookView(APIView):
         User = get_user_model()
         user = User.objects.get(id=user_id)
 
-        # --------------------------------
+        # =====================================================
         # BUY
-        # --------------------------------
+        # =====================================================
         if purchase_type == "buy":
             cart_items = CartItem.objects.filter(user=user)
             if not cart_items.exists():
@@ -689,30 +828,87 @@ class StripeWebhookView(APIView):
                     quantity=item.quantity,
                 )
 
+            # 🧾 INVOICE (BUY)
+            Invoice.objects.create(
+                user=user,
+                invoice_number=f"INV-BUY-{order.id}",
+                purchase_type="buy",
+                related_id=order.id,
+                amount=order.total_amount,
+                currency="USD",
+                stripe_payment_intent=intent["id"],
+                invoice_data={
+                    "items": [
+                        {
+                            "title": (
+                                item.product.model_name
+                                if item.product else item.bundle.title
+                            ),
+                            "quantity": item.quantity,
+                            "unit_price": str(
+                                item.product.price if item.product else item.bundle.price
+                            ),
+                            "total_price": str(
+                                (item.product.price if item.product else item.bundle.price)
+                                * item.quantity
+                            ),
+                        }
+                        for item in cart_items
+                    ],
+                    "delivery_address": order.delivery_address,
+                },
+            )
+
             cart_items.delete()
 
-        # --------------------------------
+        # =====================================================
         # RENT
-        # --------------------------------
+        # =====================================================
         elif purchase_type == "rent":
             duration_days = int(metadata.get("duration_days", 30))
             cart_items = CartItem.objects.filter(user=user)
 
+            rentals = []
+
             for item in cart_items:
                 if item.product:
-                    Rental.objects.create(
+                    rental = Rental.objects.create(
                         user=user,
                         product=item.product,
                         duration_days=duration_days,
                         amount_paid=item.product.price * item.quantity,
                         end_date=timezone.now() + timezone.timedelta(days=duration_days),
                     )
+                    rentals.append(rental)
+
+            # 🧾 INVOICE (RENT)
+            if rentals:
+                Invoice.objects.create(
+                    user=user,
+                    invoice_number=f"INV-RENT-{timezone.now().strftime('%Y%m%d%H%M%S')}",
+                    purchase_type="rent",
+                    related_id=rentals[0].id,
+                    amount=sum(r.amount_paid for r in rentals),
+                    currency="USD",
+                    stripe_payment_intent=intent["id"],
+                    invoice_data={
+                        "rentals": [
+                            {
+                                "product": r.product.model_name,
+                                "duration_days": r.duration_days,
+                                "amount": str(r.amount_paid),
+                                "end_date": str(r.end_date),
+                            }
+                            for r in rentals
+                        ]
+                    },
+                )
 
             cart_items.delete()
 
-        # --------------------------------
+        # =====================================================
         # HOSTING
-        # --------------------------------
+        # =====================================================
         elif purchase_type == "hosting":
             hosting_request_id = metadata.get("hosting_request_id")
 
@@ -728,6 +924,22 @@ class StripeWebhookView(APIView):
             hosting_request.payment_reference = intent["id"]
             hosting_request.status = "paid"
             hosting_request.save()
+
+            # 🧾 INVOICE (HOSTING)
+            Invoice.objects.create(
+                user=user,
+                invoice_number=f"INV-HOST-{hosting_request.id}",
+                purchase_type="hosting",
+                related_id=hosting_request.id,
+                amount=hosting_request.total_amount,
+                currency="USD",
+                stripe_payment_intent=intent["id"],
+                invoice_data={
+                    "items": hosting_request.items,
+                    "setup_fee": str(hosting_request.setup_fee),
+                    "hosting_location": hosting_request.hosting_location,
+                },
+            )
 
             CartItem.objects.filter(user=user).delete()
 
