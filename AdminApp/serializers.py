@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from AdminApp.models import Product,BundleOffer
+from AdminApp.models import BundleItem, Product,BundleOffer
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -40,6 +40,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ["id", "model_name", "price", "image"]
+
 class ProductMiniSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
 
@@ -52,31 +53,77 @@ class ProductMiniSerializer(serializers.ModelSerializer):
             return obj.image.url
         return None
 
-#show bundles to users
-class BundleOfferSerializer(serializers.ModelSerializer):
+
+
+
+class BundleItemInputSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
+
+
+class BundleOfferCreateSerializer(serializers.ModelSerializer):
+    items = BundleItemInputSerializer(many=True)
+
+    class Meta:
+        model = BundleOffer
+        fields = ["name", "image", "items"]
+
+    def create(self, validated_data):
+        items = validated_data.pop("items")
+        bundle = BundleOffer.objects.create(**validated_data)
+
+        for item in items:
+            BundleItem.objects.create(
+                bundle=bundle,
+                product_id=item["product_id"],
+                quantity=item["quantity"]
+            )
+
+        return bundle
+
+    def update(self, instance, validated_data):
+        items = validated_data.pop("items", None)
+
+        # Update bundle fields
+        instance.name = validated_data.get("name", instance.name)
+        if "image" in validated_data:
+            instance.image = validated_data["image"]
+        instance.save()
+
+        # Update bundle items
+        if items is not None:
+            # remove old items
+            instance.items.all().delete()
+
+            # add new items
+            for item in items:
+                BundleItem.objects.create(
+                    bundle=instance,
+                    product_id=item["product_id"],
+                    quantity=item["quantity"]
+                )
+
+        return instance
+
+class BundleItemReadSerializer(serializers.ModelSerializer):
+    product = ProductMiniSerializer()
+
+    class Meta:
+        model = BundleItem
+        fields = ["product", "quantity"]
+
+
+class BundleOfferReadSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
-    products = ProductMiniSerializer(many=True, read_only=True)
+    items = BundleItemReadSerializer(many=True)
 
     class Meta:
         model = BundleOffer
         fields = "__all__"
 
     def get_image(self, obj):
-        if obj.image:
-            return obj.image.url
-        return None
+        return obj.image.url if obj.image else None
 
-
-#create/update
-class BundleOfferCreateSerializer(serializers.ModelSerializer):
-    products = serializers.PrimaryKeyRelatedField(
-        queryset=Product.objects.all(),
-        many=True
-    )
-
-    class Meta:
-        model = BundleOffer
-        fields = "__all__"
 
 from UserApp.models import HostingRequest
 
@@ -89,6 +136,9 @@ class AdminHostingRequestSerializer(serializers.ModelSerializer):
             "status", "admin_notes", "monthly_fee", "contacted_at", "activated_at", "created_at"
         ]
         read_only_fields = ["id", "request_id", "user", "items", "created_at"]
+
+
+
 
 
 from rest_framework import serializers

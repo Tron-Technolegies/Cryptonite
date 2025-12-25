@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from AdminApp.models import BundleOffer, Product
-from .serializers import BundleOfferSerializer
+from .serializers import BundleOfferReadSerializer, BundleOfferCreateSerializer
 # import pandas as pd
 # ---------- CREATE PRODUCT ----------
 
@@ -34,7 +34,7 @@ from .serializers import ProductCreateSerializer
 from .serializers import (
     ProductSerializer,
     ProductCreateSerializer,
-    BundleOfferSerializer,
+    BundleOfferCreateSerializer,
     AdminOrderSerializer,
    
 )
@@ -103,7 +103,7 @@ def delete_product(request, id):
     return Response({'message': 'Product deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
 
 
-from .serializers import BundleOfferSerializer,BundleOfferCreateSerializer
+from .serializers import BundleOfferCreateSerializer
 
 
 # ---------- CREATE BUNDLE ----------
@@ -116,7 +116,7 @@ def create_bundle_offer(request):
     if serializer.is_valid():
         bundle = serializer.save()
         return Response(
-            BundleOfferSerializer(bundle).data,
+            BundleOfferReadSerializer(bundle).data,
             status=status.HTTP_201_CREATED
         )
 
@@ -126,8 +126,9 @@ def create_bundle_offer(request):
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def get_bundle_offers(request):
-    bundles = BundleOffer.objects.prefetch_related("products").order_by("-created_at")
-    serializer = BundleOfferSerializer(bundles, many=True)
+    bundles = BundleOffer.objects.prefetch_related("items__product").order_by("-created_at")
+
+    serializer = BundleOfferReadSerializer(bundles, many=True)
     return Response(serializer.data)
 
 
@@ -136,11 +137,13 @@ def get_bundle_offers(request):
 @permission_classes([permissions.AllowAny])
 def get_bundle_offer(request, id):
     try:
-        bundle = BundleOffer.objects.get(id=id)
+        # bundle = BundleOffer.objects.get(id=id)
+        bundle = BundleOffer.objects.prefetch_related("items__product").get(id=id)
+
     except BundleOffer.DoesNotExist:
         return Response({"error": "Bundle not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    serializer = BundleOfferSerializer(bundle)
+    serializer = BundleOfferReadSerializer(bundle)
     return Response(serializer.data)
 
 
@@ -153,7 +156,7 @@ def update_bundle_offer(request, id):
     except BundleOffer.DoesNotExist:
         return Response({"error": "Bundle not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    serializer = BundleOfferSerializer(bundle, data=request.data, partial=True)
+    serializer = BundleOfferCreateSerializer(bundle, data=request.data, partial=True)
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)

@@ -105,8 +105,8 @@ class BundleOffer(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
 
-    products = models.ManyToManyField(Product)  # multiple machines
-
+    # products = models.ManyToManyField(Product)  # multiple machines
+    # products = models.ManyToManyField(Product, through="BundleItem",related_name="bundles")
     price = models.DecimalField(max_digits=12, decimal_places=2)
     hosting_fee_per_kw = models.DecimalField(max_digits=10, decimal_places=2)
 
@@ -123,3 +123,14 @@ class BundleOffer(models.Model):
 
 
 
+class BundleItem(models.Model):
+    bundle = models.ForeignKey(
+        BundleOffer,
+        on_delete=models.CASCADE,
+        related_name="items"
+    )
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        unique_together = ("bundle", "product")
