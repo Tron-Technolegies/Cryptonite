@@ -448,12 +448,12 @@ class GetUserInfoView(APIView):
 # ---------------- VIEW ALL BUNDLE OFFERS -----------------
 
 from AdminApp.models import BundleOffer
-from AdminApp.serializers import BundleOfferReadSerializer
+from AdminApp.serializers import BundleOfferSerializer
 
 
 class BundleOfferListView(generics.ListAPIView):
     queryset = BundleOffer.objects.all().order_by('-created_at')
-    serializer_class = BundleOfferReadSerializer
+    serializer_class = BundleOfferSerializer
     permission_classes = [AllowAny]
 
 
@@ -461,7 +461,7 @@ class BundleOfferListView(generics.ListAPIView):
 
 class BundleOfferDetailView(generics.RetrieveAPIView):
     queryset = BundleOffer.objects.all()
-    serializer_class = BundleOfferReadSerializer
+    serializer_class = BundleOfferSerializer
     permission_classes = [AllowAny]
     lookup_field = 'id'
 

@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from AdminApp.models import BundleOffer, Product
-from .serializers import BundleOfferReadSerializer, BundleOfferCreateSerializer
+from .serializers import BundleOfferSerializer, BundleOfferCreateSerializer
 # import pandas as pd
 # ---------- CREATE PRODUCT ----------
 
@@ -102,78 +102,6 @@ def delete_product(request, id):
     product.delete()
     return Response({'message': 'Product deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
 
-
-from .serializers import BundleOfferCreateSerializer
-
-
-# ---------- CREATE BUNDLE ----------
-@api_view(['POST'])
-@permission_classes([permissions.IsAdminUser])
-@parser_classes([MultiPartParser, FormParser])
-def create_bundle_offer(request):
-    serializer = BundleOfferCreateSerializer(data=request.data)
-
-    if serializer.is_valid():
-        bundle = serializer.save()
-        return Response(
-            BundleOfferReadSerializer(bundle).data,
-            status=status.HTTP_201_CREATED
-        )
-
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# ---------- GET ALL BUNDLES ----------
-@api_view(['GET'])
-@permission_classes([permissions.AllowAny])
-def get_bundle_offers(request):
-    bundles = BundleOffer.objects.prefetch_related("items__product").order_by("-created_at")
-
-    serializer = BundleOfferReadSerializer(bundles, many=True)
-    return Response(serializer.data)
-
-
-# ---------- GET SINGLE BUNDLE ----------
-@api_view(['GET'])
-@permission_classes([permissions.AllowAny])
-def get_bundle_offer(request, id):
-    try:
-        # bundle = BundleOffer.objects.get(id=id)
-        bundle = BundleOffer.objects.prefetch_related("items__product").get(id=id)
-
-    except BundleOffer.DoesNotExist:
-        return Response({"error": "Bundle not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = BundleOfferReadSerializer(bundle)
-    return Response(serializer.data)
-
-
-# ---------- UPDATE BUNDLE ----------
-@api_view(['PUT', 'PATCH'])
-@permission_classes([permissions.IsAdminUser])
-def update_bundle_offer(request, id):
-    try:
-        bundle = BundleOffer.objects.get(id=id)
-    except BundleOffer.DoesNotExist:
-        return Response({"error": "Bundle not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = BundleOfferCreateSerializer(bundle, data=request.data, partial=True)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-# ---------- DELETE BUNDLE ----------
-@api_view(['DELETE'])
-@permission_classes([permissions.IsAdminUser])
-def delete_bundle_offer(request, id):
-    try:
-        bundle = BundleOffer.objects.get(id=id)
-    except BundleOffer.DoesNotExist:
-        return Response({"error": "Bundle not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    bundle.delete()
-    return Response({"message": "Bundle deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
 
 # ---------- GET ALL RENTAL ORDERS ----------
 from rest_framework.decorators import api_view, permission_classes
@@ -585,3 +513,161 @@ def bulk_upload_products(request):
             {"error": f"Failed to process file: {str(e)}"},
             status=status.HTTP_400_BAD_REQUEST
         )
+    
+
+# ---------- CREATE BUNDLE ----------
+
+import json
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.response import Response
+from rest_framework import permissions, status
+from .serializers import BundleOfferCreateSerializer, BundleOfferSerializer
+from .models import BundleOffer
+from .serializers import BundleOfferCreateSerializer
+
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAdminUser])
+@parser_classes([MultiPartParser, FormParser])
+def create_bundle_offer(request):
+    """
+    Create a new bundle offer with items.
+    Accepts form-data with JSON string for items field.
+    """
+    
+    # Convert QueryDict to regular dict
+    data = {}
+    for key, value in request.data.items():
+        if key != 'items':
+            data[key] = value
+    
+    # Parse items JSON string
+    raw_items = request.data.get("items")
+    
+    if not raw_items:
+        return Response(
+            {"items": ["This field is required."]},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Parse JSON string
+        if isinstance(raw_items, str):
+            data["items"] = json.loads(raw_items)
+        elif isinstance(raw_items, list):
+            data["items"] = raw_items
+        else:
+            data["items"] = raw_items
+    except json.JSONDecodeError as e:
+        return Response(
+            {"items": [f"Invalid JSON format: {str(e)}"]},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Validate and create
+    serializer = BundleOfferCreateSerializer(data=data)
+    
+    if serializer.is_valid():
+        bundle = serializer.save()
+        return Response(
+            BundleOfferSerializer(bundle).data,
+            status=status.HTTP_201_CREATED
+        )
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ---------- GET ALL BUNDLES ----------
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def list_bundle_offers(request):
+    """List all bundle offers"""
+    bundles = BundleOffer.objects.all()
+    serializer = BundleOfferSerializer(bundles, many=True)
+    return Response(serializer.data)
+
+# ---------- GET SINGLE BUNDLE ----------
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_bundle_offer(request, id):
+    """Get a single bundle offer"""
+    try:
+        bundle = BundleOffer.objects.get(id=id)
+    except BundleOffer.DoesNotExist:
+        return Response(
+            {"error": "Bundle not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    serializer = BundleOfferSerializer(bundle)
+    return Response(serializer.data)
+
+
+# ---------- UPDATE BUNDLE ----------
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([permissions.IsAdminUser])
+@parser_classes([MultiPartParser, FormParser])
+def update_bundle_offer(request, id):
+    """Update a bundle offer"""
+    try:
+        bundle = BundleOffer.objects.get(id=id)
+    except BundleOffer.DoesNotExist:
+        return Response(
+            {"error": "Bundle not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Convert QueryDict to regular dict
+    data = {}
+    for key, value in request.data.items():
+        if key != 'items':
+            data[key] = value
+    
+    # Parse items if provided
+    raw_items = request.data.get("items")
+    if raw_items:
+        try:
+            if isinstance(raw_items, str):
+                data["items"] = json.loads(raw_items)
+            else:
+                data["items"] = raw_items
+        except json.JSONDecodeError as e:
+            return Response(
+                {"items": [f"Invalid JSON format: {str(e)}"]},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    # Validate and update
+    serializer = BundleOfferCreateSerializer(bundle, data=data, partial=(request.method == 'PATCH'))
+    
+    if serializer.is_valid():
+        bundle = serializer.save()
+        return Response(BundleOfferSerializer(bundle).data)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+# ---------- DELETE BUNDLE ----------
+
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAdminUser])
+def delete_bundle_offer(request, pk):
+    """Delete a bundle offer"""
+    try:
+        bundle = BundleOffer.objects.get(pk=pk)
+    except BundleOffer.DoesNotExist:
+        return Response(
+            {"error": "Bundle not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    bundle.delete()
+    return Response(
+        {"message": "Bundle deleted successfully"},
+        status=status.HTTP_204_NO_CONTENT
+    )

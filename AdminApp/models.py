@@ -127,7 +127,7 @@ class BundleItem(models.Model):
     bundle = models.ForeignKey(
         BundleOffer,
         on_delete=models.CASCADE,
-        related_name="items"
+        related_name="bundle_items"
     )
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)

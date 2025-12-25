@@ -14,7 +14,7 @@ urlpatterns = [
     path('products/<int:id>/delete/', views.delete_product, name='delete-product'),
 
 
-    path("bundles/", views.get_bundle_offers, name="bundle-list"),
+    path("bundles/", views.list_bundle_offers, name="bundle-list"),
     path("bundles/<int:id>/", views.get_bundle_offer, name="bundle-detail"),
     path("bundles/add/", views.create_bundle_offer, name="bundle-create"),
     path("bundles/<int:id>/update/", views.update_bundle_offer, name="bundle-update"),
