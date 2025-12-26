@@ -36,10 +36,33 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 
         return data
 
+    # class Meta:
+    #     model = Product
+    #     fields = "__all__"
+
+class ProductUpdateSerializer(serializers.ModelSerializer):
+    image = serializers.ImageField(required=False, allow_null=True)
+
     class Meta:
         model = Product
         fields = "__all__"
 
+    def validate(self, data):
+        delivery_type = data.get("delivery_type")
+        delivery_date = data.get("delivery_date")
+
+        # Only validate if BOTH are present
+        if delivery_type and delivery_type == "future" and not delivery_date:
+            raise serializers.ValidationError({
+                "delivery_date": "Delivery date is required for future delivery type."
+            })
+
+        if delivery_type and delivery_type == "spot" and delivery_date:
+            raise serializers.ValidationError({
+                "delivery_date": "Delivery date should be empty for spot delivery type."
+            })
+
+        return data
 
 
 

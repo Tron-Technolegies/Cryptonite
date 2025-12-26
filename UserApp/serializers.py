@@ -42,27 +42,6 @@ class ProductSerializer(serializers.ModelSerializer):
 
 from .models import CartItem
 
-# class CartItemSerializer(serializers.ModelSerializer):
-#     product_name = serializers.CharField(source='product.model_name', read_only=True)
-#     product_price = serializers.DecimalField(source='product.price', max_digits=12, decimal_places=2, read_only=True)
-
-#     bundle_name = serializers.CharField(source='bundle.name', read_only=True)
-#     bundle_price = serializers.DecimalField(source='bundle.price', max_digits=12, decimal_places=2, read_only=True)
-
-#     class Meta:
-#         model = CartItem
-#         fields = [
-#             "id",
-#             "product",
-#             "product_name",
-#             "product_price",
-#             "bundle",
-#             "bundle_name",
-#             "bundle_price",
-#             "quantity"
-#         ]
-
-
 class CartItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)  # FULL PRODUCT DETAILS
 
@@ -92,12 +71,17 @@ from .models import Rental
 
 class RentalSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.model_name", read_only=True)
-
+    calculated_fee = serializers.SerializerMethodField()
     class Meta:
         model = Rental
         fields = "__all__"
         read_only_fields = ["start_date", "end_date", "is_active"]
-
+    
+    def get_calculated_fee(self, obj):
+        try:
+            return obj.calculate_rental_fee()
+        except Exception:
+            return None
 
 
 from django.contrib.auth import get_user_model
@@ -122,35 +106,11 @@ class AdminUserListSerializer(serializers.ModelSerializer):
 
 
 
-# class OrderItemSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = OrderItem
-#         fields = ["id", "product", "bundle", "quantity"]
-
-
-# class OrderSerializer(serializers.ModelSerializer):
-#     items = OrderItemSerializer(many=True, read_only=True)
-
-#     class Meta:
-#         model = Order
-#         fields = [
-#             "id",
-#             "user",
-#             "total_amount",
-#             "stripe_payment_intent",
-#             "status",
-#             "created_at",
-#             "items"
-#         ]
-
-
-
-#10/12/2025
-
 from rest_framework import serializers
 from .models import HostingRequest
 
 class HostingRequestSerializer(serializers.ModelSerializer):
+    hosting_location_display = serializers.CharField(source="get_hosting_location_display",read_only=True)
     class Meta:
         model = HostingRequest
         fields = "__all__"

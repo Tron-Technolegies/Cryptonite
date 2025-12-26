@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from AdminApp.models import BundleOffer, Product
-from .serializers import BundleOfferSerializer, BundleOfferCreateSerializer 
+from .serializers import BundleOfferSerializer, BundleOfferCreateSerializer, ProductUpdateSerializer 
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -71,7 +71,7 @@ def update_product(request, id):
     except Product.DoesNotExist:
         return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    serializer = ProductSerializer(product, data=request.data, partial=True)
+    serializer = ProductUpdateSerializer(product, data=request.data, partial=True)
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)

@@ -50,6 +50,8 @@ urlpatterns = [
     path("asic-profitability/", views.asic_profitability, name='asic_profitability'),
 
     path("orders/my-orders/", views.my_orders, name="my-orders"),
-    
+    path("my-rentals/", views.my_rentals, name='my_rentals'),
+    path('my-hosting-requests/', views.my_hosting_requests, name='my_hosting_requests')
+
     
 ]

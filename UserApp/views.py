@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model, authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
-from .serializers import RegisterSerializer, UserOrderSerializer
+from .serializers import HostingRequestSerializer, RegisterSerializer, UserOrderSerializer
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
@@ -1139,4 +1139,36 @@ def my_orders(request):
     )
 
     serializer = UserOrderSerializer(orders, many=True)
+    return Response(serializer.data, status=200)
+
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_rentals(request):
+    rentals = (
+        Rental.objects
+        .filter(user=request.user)
+        .select_related("product")
+        .order_by("-start_date")
+    )
+
+    serializer = RentalSerializer(rentals, many=True)
+    return Response(serializer.data, status=200)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_hosting_requests(request):
+    requests = (
+        HostingRequest.objects
+        .filter(user=request.user)
+        .order_by("-created_at")
+    )
+
+    serializer = HostingRequestSerializer(requests, many=True)
     return Response(serializer.data, status=200)
