@@ -30,7 +30,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 
-from .models import CartItem, Order, OrderItem
+from .models import CartItem, Invoice, Order, OrderItem
 from AdminApp.models import Product
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -149,3 +149,14 @@ class UserOrderSerializer(serializers.ModelSerializer):
 
 
 
+class InvoiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invoice
+        fields = [
+            "id",
+            "invoice_number",
+            "purchase_type",
+            "amount",
+            "currency",
+            "created_at",
+        ]

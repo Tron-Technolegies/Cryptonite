@@ -51,7 +51,8 @@ urlpatterns = [
 
     path("orders/my-orders/", views.my_orders, name="my-orders"),
     path("my-rentals/", views.my_rentals, name='my_rentals'),
-    path('my-hosting-requests/', views.my_hosting_requests, name='my_hosting_requests')
+    path('my-hosting-requests/', views.my_hosting_requests, name='my_hosting_requests'),
 
-    
+    path("invoices/",views.my_invoices, name='my_invoices'),
+    path("invoices/<int:id>/download/", views.download_invoice, name='download_invoice'),
 ]

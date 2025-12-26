@@ -1,3 +1,5 @@
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
@@ -5,7 +7,7 @@ from django.contrib.auth import get_user_model, authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
-from .serializers import HostingRequestSerializer, RegisterSerializer, UserOrderSerializer
+from .serializers import HostingRequestSerializer, InvoiceSerializer, RegisterSerializer, UserOrderSerializer
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
@@ -1150,6 +1152,8 @@ from rest_framework.response import Response
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def my_rentals(request):
+    print("Logged in user:", request.user.id, request.user.email)
+
     rentals = (
         Rental.objects
         .filter(user=request.user)
@@ -1172,3 +1176,46 @@ def my_hosting_requests(request):
 
     serializer = HostingRequestSerializer(requests, many=True)
     return Response(serializer.data, status=200)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_invoices(request):
+    invoices = (
+        Invoice.objects
+        .filter(user=request.user)
+        .order_by("-created_at")
+    )
+    serializer = InvoiceSerializer(invoices, many=True)
+    return Response(serializer.data)
+
+from reportlab.pdfgen import canvas
+
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def download_invoice(request, id):
+    invoice = get_object_or_404(Invoice,id=id,user=request.user)
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="{invoice.invoice_number}.pdf"'
+    )
+
+    p = canvas.Canvas(response)
+
+    p.drawString(50, 800, "INVOICE")
+    p.drawString(50, 780, f"Invoice No: {invoice.invoice_number}")
+    p.drawString(50, 760, f"Type: {invoice.purchase_type}")
+    p.drawString(50, 740, f"Amount: {invoice.amount} {invoice.currency}")
+
+    y = 700
+    for key, value in invoice.invoice_data.items():
+        p.drawString(50, y, f"{key}: {value}")
+        y -= 20
+
+    p.showPage()
+    p.save()
+
+    return response
