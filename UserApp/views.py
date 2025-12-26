@@ -1192,28 +1192,119 @@ def my_invoices(request):
 from reportlab.pdfgen import canvas
 
 
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+
+from .models import Invoice
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def download_invoice(request, id):
-    invoice = get_object_or_404(Invoice,id=id,user=request.user)
+    invoice = get_object_or_404(
+        Invoice,
+        id=id,
+        user=request.user
+    )
 
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = (
         f'attachment; filename="{invoice.invoice_number}.pdf"'
     )
 
-    p = canvas.Canvas(response)
+    p = canvas.Canvas(response, pagesize=A4)
+    width, height = A4
 
-    p.drawString(50, 800, "INVOICE")
-    p.drawString(50, 780, f"Invoice No: {invoice.invoice_number}")
-    p.drawString(50, 760, f"Type: {invoice.purchase_type}")
-    p.drawString(50, 740, f"Amount: {invoice.amount} {invoice.currency}")
+    BRAND = colors.HexColor("#00c336")
 
-    y = 700
-    for key, value in invoice.invoice_data.items():
-        p.drawString(50, y, f"{key}: {value}")
-        y -= 20
+    # ================= HEADER =================
+    p.setFillColor(BRAND)
+    p.setFont("Helvetica-Bold", 22)
+    p.drawString(40, height - 50, "CRYPTONITE")
+
+    p.setFont("Helvetica", 11)
+    p.setFillColor(colors.black)
+    p.drawRightString(
+        width - 40,
+        height - 50,
+        "INVOICE"
+    )
+
+    p.setStrokeColor(BRAND)
+    p.setLineWidth(3)
+    p.line(40, height - 65, width - 40, height - 65)
+
+    # ================= META =================
+    y = height - 110
+    p.setFont("Helvetica", 10)
+
+    meta = [
+        ("Invoice No", invoice.invoice_number),
+        ("Date", invoice.created_at.strftime("%d %b %Y")),
+        ("Customer", invoice.user.username),
+        ("Type", invoice.purchase_type.upper()),
+    ]
+
+    for label, value in meta:
+        p.drawString(40, y, f"{label}:")
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(120, y, str(value))
+        p.setFont("Helvetica", 10)
+        y -= 18
+
+    # ================= TABLE HEADER =================
+    y -= 10
+    p.setFillColor(BRAND)
+    p.rect(40, y, width - 80, 22, fill=True, stroke=False)
+
+    p.setFillColor(colors.white)
+    p.setFont("Helvetica-Bold", 10)
+
+    headers = ["ITEM", "QTY", "UNIT PRICE", "TOTAL"]
+    x_positions = [45, 300, 360, 460]
+
+    for header, x in zip(headers, x_positions):
+        p.drawString(x, y + 6, header)
+
+    # ================= TABLE ROWS =================
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica", 10)
+
+    y -= 22
+
+    for item in invoice.invoice_data.get("items", []):
+        p.drawString(45, y, item["title"][:40])
+        p.drawRightString(320, y, str(item["quantity"]))
+        p.drawRightString(420, y, item["unit_price"])
+        p.drawRightString(540, y, item["total_price"])
+        y -= 18
+
+    # ================= TOTAL =================
+    y -= 10
+    p.setStrokeColor(BRAND)
+    p.line(360, y, width - 40, y)
+
+    p.setFont("Helvetica-Bold", 12)
+    p.drawRightString(
+        width - 40,
+        y - 20,
+        f"TOTAL: {invoice.amount} {invoice.currency}"
+    )
+
+    # ================= FOOTER =================
+    p.setFont("Helvetica", 9)
+    p.setFillColor(colors.grey)
+    p.drawCentredString(
+        width / 2,
+        40,
+        "This is a system-generated invoice. Payment confirmed."
+    )
 
     p.showPage()
     p.save()
