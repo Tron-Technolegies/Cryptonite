@@ -1,5 +1,4 @@
-# Create your views here.
-# from turtle import pd
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status, permissions
@@ -189,7 +188,7 @@ def admin_update_hosting_request(request, id):
     })
 
 
-# ---------- Update Hosting Request ----------
+# ---------- Delete Hosting Request ----------
 
 @api_view(['DELETE'])
 @permission_classes([permissions.IsAdminUser])
@@ -689,6 +688,8 @@ def bulk_upload_products(request):
             {"error": f"Failed to process file: {str(e)}"},
             status=status.HTTP_400_BAD_REQUEST
         )
+    
+
 # ---------- CREATE BUNDLE ----------
 
 import json
@@ -830,10 +831,10 @@ def update_bundle_offer(request, id):
 
 @api_view(['DELETE'])
 @permission_classes([permissions.IsAdminUser])
-def delete_bundle_offer(request, pk):
+def delete_bundle_offer(request, id):
     """Delete a bundle offer"""
     try:
-        bundle = BundleOffer.objects.get(pk=pk)
+        bundle = BundleOffer.objects.get(id=id)
     except BundleOffer.DoesNotExist:
         return Response(
             {"error": "Bundle not found"},
@@ -845,3 +846,4 @@ def delete_bundle_offer(request, pk):
         {"message": "Bundle deleted successfully"},
         status=status.HTTP_204_NO_CONTENT
     )
+
