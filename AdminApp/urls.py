@@ -37,5 +37,5 @@ urlpatterns = [
     path("orders/<int:id>/", views.admin_order_detail, name="admin-order-detail"),
     path("orders/<int:id>/status/", views.admin_update_order_status, name="admin-order-status"),
 
-    path("admin/hosting-requests/<int:id>/activate-monitoring/",views.admin_activate_monitoring, name="admin-activate-monitoring"),
+    path("hosting-requests/<int:id>/activate-monitoring/",views.admin_activate_monitoring, name="admin-activate-monitoring"),
 ]

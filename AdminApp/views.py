@@ -861,6 +861,7 @@ from UserApp.models import HostingRequest
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def admin_activate_monitoring(request, id):
+
     hosting = get_object_or_404(HostingRequest, id=id)
 
     # Prevent duplicate activation
