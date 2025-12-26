@@ -170,7 +170,19 @@ class HostingRequest(models.Model):
         ("ET", "Ethiopia"),
         ("UAE", "UAE"),
     )
+    MONITORING_CHOICES = (
+        ("internal", "Cryptonite Platform"),
+        ("external", "Third Party Platform"),
+    )
 
+    monitoring_type = models.CharField(
+        max_length=20,
+        choices=MONITORING_CHOICES,
+        null=True,
+        blank=True
+    )
+
+    monitoring_activated = models.BooleanField(default=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     phone = models.CharField(max_length=20)
     message = models.TextField(blank=True)
