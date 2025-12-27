@@ -120,7 +120,8 @@ from .models import HostingRequest
 class HostingRequestSerializer(serializers.ModelSerializer):
     hosting_location_display = serializers.CharField(source="get_hosting_location_display",read_only=True)
     invoice_id = serializers.SerializerMethodField()
-
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+    
     class Meta:
         model = HostingRequest
         fields = "__all__"

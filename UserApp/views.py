@@ -25,9 +25,7 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save(is_active=False)
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
-        # verification_link = f"http://localhost:5175/verify-email/{uid}/{token}"
         verification_link = f"{settings.FRONTEND_URL}/verify-email/{uid}/{token}"
-
 
         send_mail(
             subject="Verify your Cryptonite account",
@@ -69,6 +67,7 @@ class VerifyEmailView(APIView):
             })
         else:
             return Response({"detail": "Invalid or expired token."}, status=400)
+        
 
 # ---------- Login by email ----------
 class EmailTokenObtainView(APIView):
@@ -129,10 +128,8 @@ class ForgotPasswordView(APIView):
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = token_generator.make_token(user)
 
-        # Example reset URL — your frontend will handle this page
         reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
 
-        # Send email (for now, console output)
         send_mail(
             subject="Password Reset Request",
             message=f"Click the link to reset your password: {reset_link}",
@@ -325,13 +322,7 @@ from datetime import datetime, timedelta
 from AdminApp.models import Product
 from .models import Rental
 from .serializers import RentalSerializer
-
 from decimal import Decimal
-from django.utils import timezone
-from datetime import timedelta
-from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 
 class RentMinerView(generics.CreateAPIView):
     serializer_class = RentalSerializer
@@ -478,19 +469,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from .utils import calculate_cart_total
-
-stripe.api_key = settings.STRIPE_SECRET_KEY
-
-import stripe
 from decimal import Decimal
-from django.conf import settings
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-
 from .utils import calculate_cart_total
 from .models import HostingRequest
+from .utils import calculate_rent_total
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -509,12 +491,25 @@ class CreatePaymentIntentView(APIView):
             )
 
         # -------------------------------
-        # BUY / RENT
+        # BUY 
         # -------------------------------
-        if purchase_type in ["buy", "rent"]:
+        if purchase_type == "buy":
             total_price, cart_items = calculate_cart_total(user)
 
             if not cart_items.exists():
+                return Response({"error": "Cart is empty"}, status=400)
+        # -------------------------------
+        # RENT 
+        # -------------------------------
+        if purchase_type == "rent":
+            duration_days = int(request.data.get("duration_days", 30))
+
+            total_price = calculate_rent_total(
+                user=user,
+                duration_days=duration_days
+            )
+
+            if total_price <= 0:
                 return Response({"error": "Cart is empty"}, status=400)
 
         # -------------------------------
@@ -572,9 +567,7 @@ class CreatePaymentIntentView(APIView):
         # RENT → duration required
         # -------------------------------
         if purchase_type == "rent":
-            duration_days = int(request.data.get("duration_days", 30))
             metadata["duration_days"] = str(duration_days)
-
         # -------------------------------
         # HOSTING metadata
         # -------------------------------
@@ -603,138 +596,6 @@ class CreatePaymentIntentView(APIView):
         })
 
 
-
-# # ---------------- STRIPE WEBHOOK -----------------
-# from django.conf import settings
-# from django.contrib.auth import get_user_model
-# from .models import CartItem, Order, OrderItem
-# stripe.api_key = settings.STRIPE_SECRET_KEY
-# import stripe
-# from django.conf import settings
-# from django.views.decorators.csrf import csrf_exempt
-# from django.utils.decorators import method_decorator
-# from rest_framework.views import APIView
-# from rest_framework.response import Response
-# from django.contrib.auth import get_user_model
-# from django.utils import timezone
-
-# from .models import CartItem, Order, OrderItem, Rental, HostingRequest
-
-# stripe.api_key = settings.STRIPE_SECRET_KEY
-
-
-# @method_decorator(csrf_exempt, name="dispatch")
-# class StripeWebhookView(APIView):
-#     permission_classes = []
-
-#     def post(self, request):
-#         payload = request.body
-#         sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
-
-#         try:
-#             event = stripe.Webhook.construct_event(
-#                 payload,
-#                 sig_header,
-#                 settings.STRIPE_WEBHOOK_SECRET
-#             )
-#         except Exception as e:
-#             return Response({"error": str(e)}, status=400)
-
-#         if event["type"] != "payment_intent.succeeded":
-#             return Response(status=200)
-
-#         intent = event["data"]["object"]
-#         metadata = intent.get("metadata", {})
-
-#         user_id = metadata.get("user_id")
-#         purchase_type = metadata.get("purchase_type")
-
-#         if not user_id or not purchase_type:
-#             return Response(status=200)
-
-#         User = get_user_model()
-#         user = User.objects.get(id=user_id)
-
-#         # --------------------------------
-#         # BUY
-#         # --------------------------------
-#         if purchase_type == "buy":
-#             cart_items = CartItem.objects.filter(user=user)
-#             if not cart_items.exists():
-#                 return Response(status=200)
-
-#             total_price = sum(
-#                 (ci.product.price if ci.product else ci.bundle.price) * ci.quantity
-#                 for ci in cart_items
-#             )
-
-#             order = Order.objects.create(
-#                 user=user,
-#                 total_amount=total_price,
-#                 stripe_payment_intent=intent["id"],
-#                 status="completed",
-#                 delivery_address={
-#                     "name": metadata.get("name"),
-#                     "line1": metadata.get("line1"),
-#                     "city": metadata.get("city"),
-#                     "state": metadata.get("state"),
-#                     "postal_code": metadata.get("postal_code"),
-#                     "country": metadata.get("country"),
-#                 },
-#             )
-
-#             for item in cart_items:
-#                 OrderItem.objects.create(
-#                     order=order,
-#                     product=item.product,
-#                     bundle=item.bundle,
-#                     quantity=item.quantity,
-#                 )
-
-#             cart_items.delete()
-
-#         # --------------------------------
-#         # RENT
-#         # --------------------------------
-#         elif purchase_type == "rent":
-#             duration_days = int(metadata.get("duration_days", 30))
-#             cart_items = CartItem.objects.filter(user=user)
-
-#             for item in cart_items:
-#                 if item.product:
-#                     Rental.objects.create(
-#                         user=user,
-#                         product=item.product,
-#                         duration_days=duration_days,
-#                         amount_paid=item.product.price * item.quantity,
-#                         end_date=timezone.now() + timezone.timedelta(days=duration_days),
-#                     )
-
-#             cart_items.delete()
-
-#         # --------------------------------
-#         # HOSTING
-#         # --------------------------------
-#         elif purchase_type == "hosting":
-#             hosting_request_id = metadata.get("hosting_request_id")
-
-#             hosting_request = HostingRequest.objects.get(
-#                 id=hosting_request_id,
-#                 user=user
-#             )
-
-#             if hosting_request.is_paid:
-#                 return Response(status=200)
-
-#             hosting_request.is_paid = True
-#             hosting_request.payment_reference = intent["id"]
-#             hosting_request.status = "paid"
-#             hosting_request.save()
-
-#             CartItem.objects.filter(user=user).delete()
-
-#         return Response(status=200)
-# ---------------- STRIPE WEBHOOK -----------------
 
 import stripe
 from django.conf import settings
@@ -844,7 +705,7 @@ class StripeWebhookView(APIView):
                         {
                             "title": (
                                 item.product.model_name
-                                if item.product else item.bundle.title
+                                if item.product else item.bundle.name
                             ),
                             "quantity": item.quantity,
                             "unit_price": str(
@@ -866,6 +727,7 @@ class StripeWebhookView(APIView):
         # =====================================================
         # RENT
         # =====================================================
+
         elif purchase_type == "rent":
             duration_days = int(metadata.get("duration_days", 30))
             cart_items = CartItem.objects.filter(user=user)
@@ -873,15 +735,39 @@ class StripeWebhookView(APIView):
             rentals = []
 
             for item in cart_items:
+
+                # PRODUCT RENT
                 if item.product:
+                    temp_rental = Rental(
+                        user=user,
+                        product=item.product,
+                        duration_days=duration_days,
+                        end_date=timezone.now()
+                    )
+                    amount = temp_rental.calculate_rental_fee()
+
                     rental = Rental.objects.create(
                         user=user,
                         product=item.product,
                         duration_days=duration_days,
-                        amount_paid=item.product.price * item.quantity,
+                        amount_paid=amount,
                         end_date=timezone.now() + timezone.timedelta(days=duration_days),
                     )
                     rentals.append(rental)
+
+                # BUNDLE RENT
+                elif item.bundle:
+                    amount = item.bundle.price * item.quantity
+
+                    rental = Rental.objects.create(
+                        user=user,
+                        bundle=item.bundle,
+                        duration_days=duration_days,
+                        amount_paid=amount,
+                        end_date=timezone.now() + timezone.timedelta(days=duration_days),
+                    )
+                    rentals.append(rental)
+
 
             # 🧾 INVOICE (RENT)
             if rentals:
@@ -889,14 +775,19 @@ class StripeWebhookView(APIView):
                     user=user,
                     invoice_number=f"INV-RENT-{timezone.now().strftime('%Y%m%d%H%M%S')}",
                     purchase_type="rent",
-                    related_id=rental.id,
+                    # related_id=rentals[0].id,  # ✅ SAFE
+                    related_id=None,
                     amount=sum(r.amount_paid for r in rentals),
                     currency="USD",
                     stripe_payment_intent=intent["id"],
                     invoice_data={
                         "rentals": [
                             {
-                                "product": r.product.model_name,
+                                "item": (
+                                    r.product.model_name
+                                    if r.product
+                                    else r.bundle.name
+                                ),
                                 "duration_days": r.duration_days,
                                 "amount": str(r.amount_paid),
                                 "end_date": str(r.end_date),
@@ -982,12 +873,6 @@ class CheckoutView(APIView):
         return Response(response)
 
 
-
-
-
-
-#10/12/2025
-
 # ---------------- HOSTING REQUEST -----------------
 SETUP_FEE = 1150
 
@@ -1034,7 +919,7 @@ class CreateHostingRequestView(APIView):
                 snapshot.append({
                     "type": "bundle",
                     "id": cart_item.bundle.id,
-                    "title": cart_item.bundle.title,
+                    "title": cart_item.bundle.name,
                     "quantity": cart_item.quantity,
                     "unit_price": str(cart_item.bundle.price),
                     "total_price": str(price)
@@ -1085,7 +970,7 @@ CACHE_TTL = 900  # 15 minutes
 @api_view(["GET"])
 def asic_profitability(request):
     try:
-        # 1️⃣ Check cache
+        # Check cache
         cached_data = cache.get(CACHE_KEY)
         if cached_data:
             return Response({
@@ -1095,7 +980,7 @@ def asic_profitability(request):
                 "data": cached_data
             })
 
-        # 2️⃣ Fetch external API
+        # Fetch external API
         r = requests.get(
             WHAT_TO_MINE_URL,
             headers={"User-Agent": "Mozilla/5.0"},
@@ -1105,7 +990,7 @@ def asic_profitability(request):
 
         data = r.json()  # FULL response
 
-        # 3️⃣ Cache full response
+        # Cache full response
         cache.set(CACHE_KEY, data, CACHE_TTL)
 
         return Response({
