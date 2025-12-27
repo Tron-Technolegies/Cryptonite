@@ -119,10 +119,19 @@ from .models import HostingRequest
 
 class HostingRequestSerializer(serializers.ModelSerializer):
     hosting_location_display = serializers.CharField(source="get_hosting_location_display",read_only=True)
+    invoice_id = serializers.SerializerMethodField()
+
     class Meta:
         model = HostingRequest
         fields = "__all__"
-
+   
+    def get_invoice_id(self, obj):
+        invoice = Invoice.objects.filter(
+            user=obj.user,
+            purchase_type="hosting",
+            related_id=obj.id
+        ).first()
+        return invoice.id if invoice else None
 
 class UserOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.model_name", read_only=True)

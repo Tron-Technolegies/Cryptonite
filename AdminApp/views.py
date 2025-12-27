@@ -847,90 +847,77 @@ def delete_bundle_offer(request, id):
         status=status.HTTP_204_NO_CONTENT
     )
 
-from django.shortcuts import get_object_or_404
-from django.core.mail import send_mail
-from django.conf import settings
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser
-from rest_framework.response import Response
-from rest_framework import status
 
-from UserApp.models import HostingRequest
+
+from django.shortcuts import get_object_or_404
+from django.core.mail import send_mail
+from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
-from django.shortcuts import get_object_or_404
-from django.core.mail import send_mail
-from django.conf import settings
+from UserApp.models import HostingRequest
 
 
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def admin_activate_monitoring(request, id):
-
-    print("🔹 STEP 1: API hit")
-
     hosting = get_object_or_404(HostingRequest, id=id)
-    print("🔹 STEP 2: Hosting fetched")
-    print("    monitoring_activated =", hosting.monitoring_activated)
-
+    
     monitoring_type = request.data.get("monitoring_type")
-    print("🔹 STEP 3: monitoring_type =", monitoring_type)
-
     resend_email = request.data.get("resend_email", False)
-    print("🔹 STEP 4: resend_email =", resend_email)
 
     if monitoring_type not in ["internal", "external"]:
-        print("❌ Invalid monitoring_type")
         return Response(
             {"monitoring_type": "Invalid monitoring type"},
             status=status.HTTP_400_BAD_REQUEST
         )
 
     user = hosting.user
-    print("🔹 STEP 5: user.email =", user.email)
 
-    # ---------------- ACTIVATE ----------------
+    # Activate monitoring if not already activated
     activated_now = False
     if not hosting.monitoring_activated:
         hosting.monitoring_activated = True
         hosting.monitoring_type = monitoring_type
         hosting.save()
         activated_now = True
-        print("🔹 STEP 6: Activated now")
 
+    # Block if already activated and not requesting resend
     if hosting.monitoring_activated and not activated_now and not resend_email:
-        print("⛔ STEP 7: Blocked (already activated, no resend)")
         return Response(
             {"detail": "Already activated, resend_email=false"},
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    print("🔹 STEP 8: Preparing email")
-
+    # Prepare email content based on monitoring type
     if hosting.monitoring_type == "internal":
         subject = "Your Cryptonite Mining Dashboard is Now Active"
         message = (
             f"Hi {user.username},\n\n"
-            "Your mining dashboard is now active.\n\n"
-            f"{settings.FRONTEND_URL}/login\n\n"
+            "Thank you for your purchase!\n\n"
+            "Your mining dashboard is now active. You can now log in with the same "
+            "user ID and password you used to purchase the miners.\n\n"
+            f"Login here: {settings.FRONTEND_URL}/login\n\n"
+            "Start monitoring your mining operations right away!\n\n"
+            "Best regards,\n"
             "Team Cryptonite"
         )
-    else:
-        subject = "Your Mining Monitoring Access Details"
+    else:  # external
+        subject = "Your Cryptonite Mining Monitoring Access Details"
         message = (
             f"Hi {user.username},\n\n"
-            "Your mining monitoring is active.\n\n"
+            "Thank you for your purchase!\n\n"
+            "You can now monitor your mining operations at the link below:\n\n"
+            "Website: https://external-monitoring-placeholder.com\n"
+            f"User ID: {user.username}\n"
+            "Password: [To be provided separately]\n\n"
+            "IMPORTANT: Please reset your password as soon as you log in for the first time.\n\n"
+            "Best regards,\n"
             "Team Cryptonite"
         )
 
-    print("🔹 STEP 9: Email backend =", settings.EMAIL_BACKEND)
-    print("🔹 STEP 10: From =", settings.DEFAULT_FROM_EMAIL)
-    print("🔹 STEP 11: To =", user.email)
-
-    print("🔹 STEP 12: Calling send_mail()")
-
+    # Send email
     send_mail(
         subject=subject,
         message=message,
@@ -938,8 +925,6 @@ def admin_activate_monitoring(request, id):
         recipient_list=[user.email],
         fail_silently=False,
     )
-
-    print("✅ STEP 13: send_mail() finished")
 
     return Response(
         {

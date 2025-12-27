@@ -889,7 +889,7 @@ class StripeWebhookView(APIView):
                     user=user,
                     invoice_number=f"INV-RENT-{timezone.now().strftime('%Y%m%d%H%M%S')}",
                     purchase_type="rent",
-                    related_id=rentals[0].id,
+                    related_id=rental.id,
                     amount=sum(r.amount_paid for r in rentals),
                     currency="USD",
                     stripe_payment_intent=intent["id"],
