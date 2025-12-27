@@ -72,6 +72,8 @@ from .models import Rental
 class RentalSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.model_name", read_only=True)
     calculated_fee = serializers.SerializerMethodField()
+    invoice_id = serializers.SerializerMethodField()
+
     class Meta:
         model = Rental
         fields = "__all__"
@@ -82,7 +84,13 @@ class RentalSerializer(serializers.ModelSerializer):
             return obj.calculate_rental_fee()
         except Exception:
             return None
-
+    def get_invoice_id(self, obj):
+        invoice = Invoice.objects.filter(
+            user=obj.user,              # 🔐 IMPORTANT
+            purchase_type="rent",
+            related_id=obj.id
+        ).first()
+        return invoice.id if invoice else None
 
 from django.contrib.auth import get_user_model
 
@@ -134,6 +142,7 @@ class UserOrderItemSerializer(serializers.ModelSerializer):
 
 class UserOrderSerializer(serializers.ModelSerializer):
     items = UserOrderItemSerializer(many=True, read_only=True)
+    invoice_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -145,7 +154,15 @@ class UserOrderSerializer(serializers.ModelSerializer):
             "stripe_payment_intent",
             "created_at",
             "items",
+            "invoice_id"
         ]
+    def get_invoice_id(self, obj):
+        invoice = Invoice.objects.filter(
+            user=obj.user,              # 🔐 IMPORTANT
+            purchase_type="buy",
+            related_id=obj.id
+        ).first()
+        return invoice.id if invoice else None
 
 
 

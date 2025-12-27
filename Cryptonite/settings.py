@@ -33,11 +33,11 @@ SECRET_KEY = env("SECRET_KEY")
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG = True
 
 
 # FOR DEPLOYMENT
-# DEBUG = env.bool("DEBUG", default=False)
+DEBUG = env.bool("DEBUG", default=False)
 
 
 # newly added
@@ -249,3 +249,10 @@ SENDGRID_API_KEY = env("SENDGRID_API_KEY")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 
 FRONTEND_URL = env("FRONTEND_URL")
+
+
+# Disable sandbox mode explicitly
+SENDGRID_SANDBOX_MODE_IN_DEBUG = False
+
+# Or disable it entirely
+SENDGRID_SANDBOX_MODE = False

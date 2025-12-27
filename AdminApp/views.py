@@ -856,96 +856,97 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from UserApp.models import HostingRequest
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.core.mail import send_mail
+from django.conf import settings
 
 
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def admin_activate_monitoring(request, id):
 
-    hosting = get_object_or_404(HostingRequest, id=id)
+    print("🔹 STEP 1: API hit")
 
-    # Prevent duplicate activation
-    if hosting.monitoring_activated:
-        return Response(
-            {"detail": "Monitoring has already been activated for this request."},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    hosting = get_object_or_404(HostingRequest, id=id)
+    print("🔹 STEP 2: Hosting fetched")
+    print("    monitoring_activated =", hosting.monitoring_activated)
 
     monitoring_type = request.data.get("monitoring_type")
+    print("🔹 STEP 3: monitoring_type =", monitoring_type)
+
+    resend_email = request.data.get("resend_email", False)
+    print("🔹 STEP 4: resend_email =", resend_email)
 
     if monitoring_type not in ["internal", "external"]:
+        print("❌ Invalid monitoring_type")
         return Response(
-            {"monitoring_type": "Invalid monitoring type."},
+            {"monitoring_type": "Invalid monitoring type"},
             status=status.HTTP_400_BAD_REQUEST
         )
 
     user = hosting.user
+    print("🔹 STEP 5: user.email =", user.email)
 
-    # ---------------- EMAIL CONTENT ----------------
+    # ---------------- ACTIVATE ----------------
+    activated_now = False
+    if not hosting.monitoring_activated:
+        hosting.monitoring_activated = True
+        hosting.monitoring_type = monitoring_type
+        hosting.save()
+        activated_now = True
+        print("🔹 STEP 6: Activated now")
 
-    if monitoring_type == "internal":
-        subject = "Your Cryptonite Mining Dashboard is Now Active 🚀"
+    if hosting.monitoring_activated and not activated_now and not resend_email:
+        print("⛔ STEP 7: Blocked (already activated, no resend)")
+        return Response(
+            {"detail": "Already activated, resend_email=false"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-        message = f"""
-Hi {user.username},
+    print("🔹 STEP 8: Preparing email")
 
-Thank you for your purchase!
-
-We’re happy to inform you that your mining dashboard on the Cryptonite platform
-is now active. You can start monitoring your mining operations right away.
-
-🔐 Please log in using the same username and password you used during purchase:
-👉 {settings.FRONTEND_URL}/login
-
-After logging in, navigate to the Hosting section to access your dashboard.
-
-If you need any assistance, our support team is always here to help.
-
-Warm regards,
-Team Cryptonite
-        """
-
-    else:  # external monitoring
+    if hosting.monitoring_type == "internal":
+        subject = "Your Cryptonite Mining Dashboard is Now Active"
+        message = (
+            f"Hi {user.username},\n\n"
+            "Your mining dashboard is now active.\n\n"
+            f"{settings.FRONTEND_URL}/login\n\n"
+            "Team Cryptonite"
+        )
+    else:
         subject = "Your Mining Monitoring Access Details"
+        message = (
+            f"Hi {user.username},\n\n"
+            "Your mining monitoring is active.\n\n"
+            "Team Cryptonite"
+        )
 
-        message = f"""
-Hi {user.username},
+    print("🔹 STEP 9: Email backend =", settings.EMAIL_BACKEND)
+    print("🔹 STEP 10: From =", settings.DEFAULT_FROM_EMAIL)
+    print("🔹 STEP 11: To =", user.email)
 
-Thank you for your purchase!
-
-Your mining monitoring access has been successfully set up on a third-party
-platform.
-
-🌐 Monitoring Platform:
-👉 https://third-party-platform-link.com
-
-🔐 Login Details:
-Username: {user.email}
-Password: Temporary password (please reset immediately)
-
-⚠️ For security reasons, we strongly recommend resetting your password
-immediately after your first login.
-
-If you face any issues, feel free to reach out to our support team.
-
-Best regards,
-Team Cryptonite
-        """
+    print("🔹 STEP 12: Calling send_mail()")
 
     send_mail(
         subject=subject,
         message=message,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
-        fail_silently=False
+        fail_silently=False,
     )
 
-    # ---------------- SAVE STATE ----------------
-    hosting.monitoring_type = monitoring_type
-    hosting.monitoring_activated = True
-    hosting.save()
+    print("✅ STEP 13: send_mail() finished")
 
     return Response(
-        {"detail": "Monitoring activated and email sent successfully."},
+        {
+            "monitoring_activated": hosting.monitoring_activated,
+            "email_sent": True,
+            "activated_now": activated_now,
+            "resend_email": resend_email
+        },
         status=status.HTTP_200_OK
     )
