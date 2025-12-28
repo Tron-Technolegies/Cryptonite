@@ -56,30 +56,25 @@ class Rental(models.Model):
         return f"{self.user.email} rented {self.product.model_name}"
     
     def calculate_rental_fee(self):
-        # STEP 1:
         # Read machine power from product.
         # ASSUMPTION: power is stored in WATTS (no unit in DB)
         power_watts = Decimal(self.product.power)
 
-        # STEP 2:
         # Convert power from watts to kilowatts (1 kW = 1000 W)
         power_kw = power_watts / Decimal("1000")
 
-        # STEP 3:
         # Ensure hosting fee per kW is set for this product
         # This is required to calculate the hosting cost
         if self.product.hosting_fee_per_kw is None:
             raise ValueError("hosting_fee_per_kw is not set for this product")
 
-        # STEP 4:
         # Calculate monthly hosting cost for this machine
         # Formula: power (kW) × hosting fee per kW
         monthly_cost = power_kw * self.product.hosting_fee_per_kw
 
-        # STEP 5:
         # Convert monthly cost to daily cost
-        # Assumption: 30 days = 1 month (standard hosting calculation)
-        daily_cost = monthly_cost / Decimal("30")
+        # Assumption: 30.5 days = 1 month (standard hosting calculation)
+        daily_cost = monthly_cost / Decimal("30.5")
 
         # STEP 6:
         # Calculate total rental cost for the given rental duration

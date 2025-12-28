@@ -874,7 +874,7 @@ class CheckoutView(APIView):
 
 
 # ---------------- HOSTING REQUEST -----------------
-SETUP_FEE = 1150
+SETUP_FEE_PER_DEVICE = 1150
 
 class CreateHostingRequestView(APIView):
     permission_classes = [IsAuthenticated]
@@ -897,11 +897,13 @@ class CreateHostingRequestView(APIView):
 
         snapshot = []
         items_total = 0
+        total_devices = 0 
 
         for cart_item in cart_items:
             if cart_item.product:
                 price = cart_item.product.price * cart_item.quantity
                 items_total += price
+                total_devices += cart_item.quantity
 
                 snapshot.append({
                     "type": "product",
@@ -915,6 +917,7 @@ class CreateHostingRequestView(APIView):
             elif cart_item.bundle:
                 price = cart_item.bundle.price * cart_item.quantity
                 items_total += price
+                total_devices += cart_item.quantity
 
                 snapshot.append({
                     "type": "bundle",
@@ -924,8 +927,8 @@ class CreateHostingRequestView(APIView):
                     "unit_price": str(cart_item.bundle.price),
                     "total_price": str(price)
                 })
-
-        total_amount = items_total + SETUP_FEE
+        setup_fee = SETUP_FEE_PER_DEVICE * total_devices
+        total_amount = items_total + setup_fee
 
         hosting_request = HostingRequest.objects.create(
             user=user,
@@ -933,7 +936,7 @@ class CreateHostingRequestView(APIView):
             message=message,
             hosting_location=hosting_location,
             items=snapshot,
-            setup_fee=SETUP_FEE,
+            setup_fee=setup_fee,
             total_amount=total_amount,
             is_paid=False
         )
@@ -945,7 +948,8 @@ class CreateHostingRequestView(APIView):
             "message": "Hosting request created. Proceed to payment.",
             "hosting_request_id": hosting_request.id,
             "items_total": items_total,
-            "setup_fee": SETUP_FEE,
+            "setup_fee": setup_fee,       
+            "total_devices": total_devices,
             "total_amount": total_amount
         }, status=201)
 
