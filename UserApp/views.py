@@ -468,11 +468,10 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .utils import calculate_cart_total
+from .utils import calculate_cart_total, calculate_rent_total
 from decimal import Decimal
 from .utils import calculate_cart_total
 from .models import HostingRequest
-from .utils import calculate_rent_total
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -504,7 +503,8 @@ class CreatePaymentIntentView(APIView):
         if purchase_type == "rent":
             duration_days = int(request.data.get("duration_days", 30))
 
-            total_price = calculate_rent_total(
+            # UPDATED: unpack total + snapshot correctly
+            total_price, rent_snapshot = calculate_rent_total(
                 user=user,
                 duration_days=duration_days
             )

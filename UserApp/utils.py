@@ -14,7 +14,6 @@ def calculate_cart_total(user):
 
 
 
-
 from decimal import Decimal
 from django.utils import timezone
 
@@ -27,6 +26,11 @@ def calculate_rent_total(user, duration_days):
     from .models import CartItem, Rental
 
     cart_items = CartItem.objects.filter(user=user)
+
+    # 🔧 UPDATED: guard against empty cart
+    if not cart_items.exists():
+        return Decimal("0.00"), []
+
     snapshot = []
     total = Decimal("0.00")
 
@@ -40,6 +44,7 @@ def calculate_rent_total(user, duration_days):
                 duration_days=duration_days,
                 end_date=timezone.now()
             )
+
             fee = temp_rental.calculate_rental_fee()
 
             snapshot.append({
@@ -54,7 +59,8 @@ def calculate_rent_total(user, duration_days):
 
         # BUNDLE RENT (simple for now)
         elif item.bundle:
-            fee = item.bundle.price * item.quantity
+            # 🔧 UPDATED: Decimal-safe calculation
+            fee = Decimal(item.bundle.price) * Decimal(item.quantity)
 
             snapshot.append({
                 "type": "bundle",
@@ -66,4 +72,5 @@ def calculate_rent_total(user, duration_days):
 
             total += fee
 
+    # UPDATED: always return Decimal + snapshot
     return total.quantize(Decimal("0.01")), snapshot
