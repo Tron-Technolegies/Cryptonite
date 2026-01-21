@@ -32,8 +32,9 @@ packaging==25.0
 pandas==2.3.3
 pillow==12.0.0
 prompt_toolkit==3.0.52
-psycopg2==2.9.11
+
 psycopg2-binary==2.9.11
+
 pycparser==2.23
 PyJWT==2.10.1
 python-dateutil==2.9.0.post0
