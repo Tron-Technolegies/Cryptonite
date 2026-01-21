@@ -197,7 +197,7 @@ class LogoutView(APIView):
 
 from rest_framework import generics
 from .serializers import ProductSerializer, CartItemSerializer
-from AdminApp.models import Product
+from AdminApp.models import Blog, Product
 
 class ProductListView(generics.ListAPIView):
     queryset = Product.objects.all().order_by('-id')
@@ -441,7 +441,7 @@ class GetUserInfoView(APIView):
 # ---------------- VIEW ALL BUNDLE OFFERS -----------------
 
 from AdminApp.models import BundleOffer
-from AdminApp.serializers import BundleOfferSerializer
+from AdminApp.serializers import BlogSerializer, BundleOfferSerializer
 
 
 class BundleOfferListView(generics.ListAPIView):
@@ -1199,3 +1199,82 @@ def download_invoice(request, id):
     p.save()
 
     return response
+
+
+
+
+
+@api_view(["GET"])
+def list_blogs(request):
+    blogs = Blog.objects.filter(is_published=True).order_by("-created_at")
+    serializer = BlogSerializer(blogs, many=True)
+    return Response(serializer.data)
+
+@api_view(["GET"])
+def blog_detail(request, slug):
+    blog = get_object_or_404(Blog, slug=slug, is_published=True)
+    serializer = BlogSerializer(blog)
+    return Response(serializer.data)
+
+
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+
+from AdminApp.models import Events
+from AdminApp.serializers import EventsSerializer
+
+@api_view(["GET"])
+def list_events(request):
+    events = Events.objects.filter(is_published=True).order_by("-created_at")
+    serializer = EventsSerializer(events, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+def event_detail(request, slug):
+    event = get_object_or_404(Events, slug=slug, is_published=True)
+    serializer = EventsSerializer(event)
+    return Response(serializer.data)
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+
+from .models import ProductReview
+from AdminApp.models import Product
+from .serializers import ProductReviewSerializer
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_review(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+
+    # prevent duplicate review
+    if ProductReview.objects.filter(product=product, user=request.user).exists():
+        return Response(
+            {"error": "You have already reviewed this product"},
+            status=400
+        )
+
+    serializer = ProductReviewSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(user=request.user, product=product)
+        reviews = ProductReview.objects.filter(product=product)
+        product.review_count = reviews.count()
+        product.average_rating = round(
+            sum(r.rating for r in reviews) / product.review_count, 1
+        )
+        product.save()
+        return Response(serializer.data, status=201)
+
+    return Response(serializer.errors, status=400)
+
+
+@api_view(["GET"])
+def list_product_reviews(request, product_id):
+    reviews = ProductReview.objects.filter(product_id=product_id).order_by("-created_at")
+    serializer = ProductReviewSerializer(reviews, many=True)
+    return Response(serializer.data)

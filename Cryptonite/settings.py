@@ -138,22 +138,22 @@ WSGI_APPLICATION = 'Cryptonite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'postgres',
-#         'USER': 'postgres',
-#         'PASSWORD': 'admin',
-#         'PORT': 5432,
-#         'HOST':'localhost'
-#     }
-# }
-
-import dj_database_url
-
 DATABASES = {
-    "default": dj_database_url.config(conn_max_age=600, ssl_require=True)
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres',
+        'PASSWORD': 'admin',
+        'PORT': 5432,
+        'HOST':'localhost'
+    }
 }
+
+# import dj_database_url
+
+# DATABASES = {
+#     "default": dj_database_url.config(conn_max_age=600, ssl_require=True)
+# }
 
 
 

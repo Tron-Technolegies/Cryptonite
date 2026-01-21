@@ -38,4 +38,19 @@ urlpatterns = [
     path("orders/<int:id>/status/", views.admin_update_order_status, name="admin-order-status"),
 
     path("hosting-requests/<int:id>/activate-monitoring/",views.admin_activate_monitoring, name="admin-activate-monitoring"),
+
+
+       # ---------------- ADMIN BLOG CRUD ----------------
+    path("admin/blogs/", views.admin_list_blogs, name="admin-list-blogs"),
+    path("admin/blogs/create/", views.create_blog, name="create-blog"),
+    path("admin/blogs/<int:id>/update/", views.update_blog, name="update-blog"),
+    path("admin/blogs/<int:id>/delete/", views.delete_blog, name="delete-blog"),
+
+
+    path("admin/events/create/", views.create_event, name='create_event'),
+    path("admin/events/<int:id>/update/", views.update_event, name='update_event'),
+    path("admin/events/<int:id>/delete/", views.delete_event, name='delete_event'),
+    path("admin/events/", views.admin_list_events, name='admin_list_events'),
+
+
 ]

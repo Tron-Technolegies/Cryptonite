@@ -5,6 +5,8 @@ from AdminApp.models import BundleItem, Product, BundleOffer
 
 class ProductSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
+    discount_amount = serializers.SerializerMethodField()
+    final_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -14,6 +16,12 @@ class ProductSerializer(serializers.ModelSerializer):
         if obj.image:
             return obj.image.url
         return None
+    
+    def get_discount_amount(self, obj):
+        return float(obj.discount_amount)
+
+    def get_final_price(self, obj):
+        return float(obj.final_price)
 
 class ProductCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -68,15 +76,25 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
 
 class ProductMiniSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
+    final_price = serializers.SerializerMethodField()
+    discount_percentage = serializers.IntegerField()
+    discount_amount = serializers.SerializerMethodField()
+
 
     class Meta:
         model = Product
-        fields = ["id", "model_name", "price", "image"]
+        fields = ["id", "model_name", "price", "image","discount_percentage","discount_amount","final_price",]
 
     def get_image(self, obj):
         if obj.image:
             return obj.image.url
         return None
+    
+    def get_discount_amount(self, obj):
+        return float(obj.discount_amount)
+
+    def get_final_price(self, obj):
+        return float(obj.final_price)
 
 
 from UserApp.models import HostingRequest
@@ -268,3 +286,26 @@ class BundleOfferSerializer(serializers.ModelSerializer):
         if obj.image:
             return obj.image.url
         return None
+    
+
+
+from rest_framework import serializers
+from .models import Blog
+
+class BlogSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source="author.username", read_only=True)
+
+    class Meta:
+        model = Blog
+        fields = "__all__"
+
+
+from rest_framework import serializers
+from .models import Events
+
+class EventsSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source="author.username", read_only=True)
+
+    class Meta:
+        model = Events
+        fields = "__all__"

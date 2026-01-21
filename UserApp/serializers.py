@@ -187,3 +187,19 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "currency",
             "created_at",
         ]
+
+
+from rest_framework import serializers
+from .models import ProductReview
+
+
+class ProductReviewSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductReview
+        fields = "__all__"
+        read_only_fields = ("user", "product")
+
+    def get_user_name(self, obj):
+        return obj.user.username if obj.user else None

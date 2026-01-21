@@ -55,4 +55,15 @@ urlpatterns = [
 
     path("invoices/",views.my_invoices, name='my_invoices'),
     path("invoices/<int:id>/download/", views.download_invoice, name='download_invoice'),
+
+    # PUBLIC BLOG APIs
+    path("blogs/", views.list_blogs, name="blog-list"),
+    path("blogs/<slug:slug>/", views.blog_detail, name="blog-detail"),
+
+    path("events/", views.list_events, name='list_events'),
+    path("events/<slug:slug>/", views.event_detail, name='event_detail'),
+
+    path('products/<int:product_id>/reviews/', views.list_product_reviews, name='product-reviews'),
+    path('products/<int:product_id>/reviews/create/', views.create_review, name='review-create'),
+    # path('products/<int:product_id>/reviews/',views.list_product_reviews,name='product-review-list'),
 ]
