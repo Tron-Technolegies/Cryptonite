@@ -53,17 +53,23 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     ".onrender.com",
-    "13.220.12.250"
+    "13.220.12.250",
+    "api.cryptonite.at",
+    "cryptonite.at",
 ]
+
 
 CORS_ALLOWED_ORIGINS =[
     "http://localhost:5173"
     # "http://localhost:5175",
     # "https://cryptonitemining.netlify.app",
     # "https://cryptonite-admin.netlify.app",
-    # "https://cryptonite.at"
+    "https://cryptonite.at"
     
 ]
+
+
+
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
