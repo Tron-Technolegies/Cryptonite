@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model, authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
-from .serializers import HostingRequestSerializer, InvoiceSerializer, RegisterSerializer, UserOrderSerializer
+from .serializers import HostingRequestSerializer, InvoiceSerializer, RegisterSerializer, ResendVerificationSerializer, UserOrderSerializer
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
@@ -67,7 +67,52 @@ class VerifyEmailView(APIView):
             })
         else:
             return Response({"detail": "Invalid or expired token."}, status=400)
-        
+
+# ---------- Resend Verification Email ----------
+from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework import status
+
+class ResendVerificationEmailView(APIView):
+    permission_classes = [AllowAny]
+    serializer_class = ResendVerificationSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.context["user"]
+
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+        verification_link = (
+            f"{settings.FRONTEND_URL}/verify-email/{uid}/{token}"
+        )
+
+        send_mail(
+            subject="Verify your Cryptonite account",
+            message=(
+                f"Hi {user.username},\n\n"
+                f"Please verify your email by clicking the link below:\n"
+                f"{verification_link}\n\n"
+                f"If you did not request this, you can safely ignore this email."
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+
+        return Response(
+            {"detail": "Verification email sent successfully."},
+            status=status.HTTP_200_OK,
+        )
 
 # ---------- Login by email ----------
 class EmailTokenObtainView(APIView):

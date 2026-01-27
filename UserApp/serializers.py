@@ -203,3 +203,27 @@ class ProductReviewSerializer(serializers.ModelSerializer):
 
     def get_user_name(self, obj):
         return obj.user.username if obj.user else None
+
+
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class ResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        try:
+            user = User.objects.get(email=value)
+        except User.DoesNotExist:
+            # Do NOT reveal user existence
+            raise serializers.ValidationError(
+                "If this email exists, a verification link will be sent."
+            )
+
+        if user.is_active:
+            raise serializers.ValidationError("User is already verified.")
+
+        self.context["user"] = user
+        return value

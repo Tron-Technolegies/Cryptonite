@@ -1,7 +1,7 @@
 from django.urls import path
 
 from UserApp import views
-from .views import AddToCartView, BundleOfferDetailView, BundleOfferListView, CartListView, CartTotalView, CheckoutView, CreateHostingRequestView, CreatePaymentIntentView, ForgotPasswordView, GetUserInfoView, LogoutView, ProductDetailView, ProductListView, RegisterView, EmailTokenObtainView, RemoveFromCartView, RentMinerView, ResetPasswordView, StripeWebhookView, UpdateCartView, UserActiveRentalsView, UserPastRentalsView, VerifyEmailView
+from .views import AddToCartView, BundleOfferDetailView, BundleOfferListView, CartListView, CartTotalView, CheckoutView, CreateHostingRequestView, CreatePaymentIntentView, ForgotPasswordView, GetUserInfoView, LogoutView, ProductDetailView, ProductListView, RegisterView, EmailTokenObtainView, RemoveFromCartView, RentMinerView, ResendVerificationEmailView, ResetPasswordView, StripeWebhookView, UpdateCartView, UserActiveRentalsView, UserPastRentalsView, VerifyEmailView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
@@ -12,6 +12,7 @@ urlpatterns = [
     path("auth/forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
     path("auth/reset-password/<uidb64>/<token>/", ResetPasswordView.as_view(), name="reset-password"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
+    path("auth/resend-verification/", ResendVerificationEmailView.as_view()),
 
     # Product endpoints
     path("products/", ProductListView.as_view(), name="product-list"),
