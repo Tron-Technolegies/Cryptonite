@@ -53,6 +53,7 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     ".onrender.com",
+    "13.220.12.250"
 ]
 
 CORS_ALLOWED_ORIGINS =[
@@ -65,7 +66,13 @@ CORS_ALLOWED_ORIGINS =[
 ]
 CORS_ALLOW_CREDENTIALS = True
 
-
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5175",
+    "https://cryptonitemining.netlify.app",
+    "https://cryptonite-admin.netlify.app",
+    "https://cryptonite.at"
+]
 
 # Application definition
 
