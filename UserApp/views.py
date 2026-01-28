@@ -78,7 +78,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-
+ 
+@method_decorator(csrf_exempt, name="dispatch")
 class ResendVerificationEmailView(APIView):
     permission_classes = [AllowAny]
     serializer_class = ResendVerificationSerializer
