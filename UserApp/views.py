@@ -247,10 +247,33 @@ from rest_framework import generics
 from .serializers import ProductSerializer, CartItemSerializer
 from AdminApp.models import Blog, Product
 
+# class ProductListView(generics.ListAPIView):
+#     queryset = Product.objects.all().order_by('-id')
+#     serializer_class = ProductSerializer
+#     permission_classes = []
+
+
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter
+from .filters import ProductFilter
+
 class ProductListView(generics.ListAPIView):
-    queryset = Product.objects.all().order_by('-id')
+    queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = []
+
+    # 🔹 enable filter & sorting
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = ProductFilter
+
+    # 🔹 sorting fields
+    ordering_fields = [
+        "price",
+        "created_at",
+        "average_rating",
+    ]
+
+    ordering = ["-id"]  # default
 
 
 # ---------------- VIEW SINGLE PRODUCT -----------------
@@ -1326,3 +1349,58 @@ def list_product_reviews(request, product_id):
     reviews = ProductReview.objects.filter(product_id=product_id).order_by("-created_at")
     serializer = ProductReviewSerializer(reviews, many=True)
     return Response(serializer.data)
+
+
+# ---------------- GRAPH UNDER PRODUCT DETAIL PAGE -----------------
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from AdminApp.models import Product
+
+from .helpers.mining import (
+    parse_hashrate,
+    get_btc_price,
+    calculate_profitability
+)
+
+class CalculateProfitabilityAPIView(APIView):
+    permission_classes = []
+
+    def post(self, request):
+        product_id = request.data.get("product_id")
+        number_of_miners = int(request.data.get("number_of_miners", 1))
+        electricity_cost = float(request.data.get("electricity_cost", 0.058))
+
+        if not product_id:
+            return Response(
+                {"error": "product_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response(
+                {"error": "Product not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        hashrate_th = parse_hashrate(product.hashrate)
+        power = int(product.power)
+        btc_price = get_btc_price()
+
+        metrics = calculate_profitability(
+            hashrate_th=hashrate_th,
+            power_watts=power,
+            btc_price=btc_price,
+            number_of_miners=number_of_miners,
+            electricity_cost=electricity_cost
+        )
+
+        return Response({
+            "hashrate": hashrate_th,
+            "power": power,
+            "btc_price": btc_price,
+            "metrics": metrics
+        })

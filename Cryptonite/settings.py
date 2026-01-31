@@ -63,7 +63,7 @@ CORS_ALLOWED_ORIGINS =[
     "http://localhost:5173",
     # "http://localhost:5175",
     # "https://cryptonitemining.netlify.app",
-    # "https://cryptonite-admin.netlify.app",
+    "https://cryptonite-admin.netlify.app",
     "https://cryptonite.at",
     "https://cryptonitte.netlify.app",
     
@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     "UserApp",
     "AdminApp",
     'rest_framework_simplejwt.token_blacklist',
+    "django_filters"
 
 
 ]

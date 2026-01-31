@@ -1,7 +1,7 @@
 from django.urls import path
 
 from UserApp import views
-from .views import AddToCartView, BundleOfferDetailView, BundleOfferListView, CartListView, CartTotalView, CheckoutView, CreateHostingRequestView, CreatePaymentIntentView, ForgotPasswordView, GetUserInfoView, LogoutView, ProductDetailView, ProductListView, RegisterView, EmailTokenObtainView, RemoveFromCartView, RentMinerView, ResendVerificationEmailView, ResetPasswordView, StripeWebhookView, UpdateCartView, UserActiveRentalsView, UserPastRentalsView, VerifyEmailView
+from .views import AddToCartView, BundleOfferDetailView, BundleOfferListView, CalculateProfitabilityAPIView, CartListView, CartTotalView, CheckoutView, CreateHostingRequestView, CreatePaymentIntentView, ForgotPasswordView, GetUserInfoView, LogoutView, ProductDetailView, ProductListView, RegisterView, EmailTokenObtainView, RemoveFromCartView, RentMinerView, ResendVerificationEmailView, ResetPasswordView, StripeWebhookView, UpdateCartView, UserActiveRentalsView, UserPastRentalsView, VerifyEmailView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
@@ -67,4 +67,8 @@ urlpatterns = [
     path('products/<int:product_id>/reviews/', views.list_product_reviews, name='product-reviews'),
     path('products/<int:product_id>/reviews/create/', views.create_review, name='review-create'),
     # path('products/<int:product_id>/reviews/',views.list_product_reviews,name='product-review-list'),
+
+   
+    path("api/calculate-profitability/",CalculateProfitabilityAPIView.as_view(),name="calculate-profitability")
+
 ]
