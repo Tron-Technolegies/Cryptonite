@@ -694,6 +694,9 @@ def create_blog(request):
     return Response(serializer.errors, status=400)
 
 
+
+from django.views.decorators.csrf import csrf_exempt
+@csrf_exempt
 @api_view(["PUT", "PATCH"])
 @permission_classes([IsAdminUser])
 @parser_classes([MultiPartParser, FormParser])
@@ -741,6 +744,7 @@ def create_event(request):
         return Response(serializer.data, status=201)
     return Response(serializer.errors, status=400)
 
+@csrf_exempt
 @api_view(["PUT", "PATCH"])
 @permission_classes([IsAdminUser])
 @parser_classes([MultiPartParser, FormParser])

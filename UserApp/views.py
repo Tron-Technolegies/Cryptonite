@@ -256,6 +256,7 @@ from AdminApp.models import Blog, Product
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
 from .filters import ProductFilter
+from django.db.models import Q
 
 class ProductListView(generics.ListAPIView):
     queryset = Product.objects.all()
@@ -275,7 +276,18 @@ class ProductListView(generics.ListAPIView):
 
     ordering = ["-id"]  # default
 
+    def get_queryset(self):
+        queryset = Product.objects.all()
 
+        search = self.request.query_params.get("q", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(brand__icontains=search) |
+                Q(description__icontains=search)
+            )
+
+        return queryset
 # ---------------- VIEW SINGLE PRODUCT -----------------
 class ProductDetailView(generics.RetrieveAPIView):
     queryset = Product.objects.all()
